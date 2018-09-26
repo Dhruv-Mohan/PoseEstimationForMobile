@@ -52,9 +52,13 @@ def get_network_output_wh():
 def pose_random_scale(meta):
     scalew = random.uniform(0.8, 1.2)
     scaleh = random.uniform(0.8, 1.2)
+    scalew = 192/meta.width
+    scaleh = 192/meta.height
     neww = int(meta.width * scalew)
     newh = int(meta.height * scaleh)
 
+    neww = 192
+    newh = 192
     dst = cv2.resize(meta.img, (neww, newh), interpolation=cv2.INTER_AREA)
 
     # adjust meta data

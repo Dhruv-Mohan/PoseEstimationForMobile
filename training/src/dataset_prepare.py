@@ -58,7 +58,7 @@ class CocoPose:
 
 
 class CocoMetadata:
-    __coco_parts = 14
+    __coco_parts = 90
 
     @staticmethod
     def parse_float(four_np):
@@ -84,17 +84,20 @@ class CocoMetadata:
                 continue
 
             kp = np.array(ann['keypoints'])
-            xs = kp[0::3]
-            ys = kp[1::3]
-            vs = kp[2::3]
+            xs = kp[0::2]
+            ys = kp[1::2]
+            vs = np.ones(90).tolist()
 
             joint_list.append([(x, y) if v >= 1 else (-1000, -1000) for x, y, v in zip(xs, ys, vs)])
-
         self.joint_list = []
+        transform_list = []
+        for i in range(90):
+            transform_list.append(i+1)
         transform = list(zip(
-            [1, 2, 4, 6, 8, 3, 5, 7, 10, 12, 14, 9, 11, 13],
-            [1, 2, 4, 6, 8, 3, 5, 7, 10, 12, 14, 9, 11, 13]
+            transform_list,
+            transform_list
         ))
+
         for prev_joint in joint_list:
             new_joint = []
             for idx1, idx2 in transform:
@@ -109,6 +112,7 @@ class CocoMetadata:
             # new_joint.append((-1000, -1000))
             self.joint_list.append(new_joint)
 
+
     def get_heatmap(self, target_size):
         heatmap = np.zeros((CocoMetadata.__coco_parts, self.height, self.width), dtype=np.float32)
 
@@ -122,9 +126,8 @@ class CocoMetadata:
 
         # background
         # heatmap[:, :, -1] = np.clip(1 - np.amax(heatmap, axis=2), 0.0, 1.0)
-
         if target_size:
-            heatmap = cv2.resize(heatmap, target_size, interpolation=cv2.INTER_AREA)
+            heatmap = cv2.resize(heatmap, target_size, 0)
 
         return heatmap.astype(np.float16)
 
@@ -158,3 +161,4 @@ class CocoMetadata:
             print("image not read, path=%s" % img_path)
         nparr = np.fromstring(img_str, np.uint8)
         return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
