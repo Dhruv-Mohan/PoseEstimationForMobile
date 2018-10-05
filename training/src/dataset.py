@@ -25,17 +25,37 @@ import numpy as np
 import cv2
 import pickle
 import multiprocessing
+import imgaug as ia
+from imgaug import augmenters as iaa
+
+aug = iaa.SomeOf((0, None), [
+    # iaa.AdditiveGaussianNoise(scale=(0, 0.002)),
+    iaa.Noop(),
+iaa.Noop(),
+iaa.Noop(),
+iaa.Noop(),
+    #iaa.GaussianBlur(sigma=(0.0, 0.15)),
+    #iaa.Dropout(p=(0, 0.02)),
+    #iaa.AddElementwise((-10, 10), per_channel=0.5),
+    #iaa.AdditiveGaussianNoise(scale=(0, 0.05 * 0.1)),
+    # iaa.ContrastNormalization((0.5, 1.5)),
+    iaa.Affine(scale=(0.90, 1.11), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-5, 5), shear=(-1, 1), mode=['edge'])
+    #iaa.pad()
+    # iaa.CoarseDropout(0.2, size_percent=(0.001, 0.2))
+], random_order=True)
+
+
 
 BASE = "/root/hdd"
 BASE_PATH = ""
-#TRAIN_JSON = "train_gm16k.json"
+#TRAIN_JSON = "train_gm16k.json"stea
 #VALID_JSON = "val_gm16k.json"
 
 TRAIN_ANNO = None
 VALID_ANNO = None
 CONFIG = None
-_TRAIN_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/single_train_images_256/'
-_TRAIN_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_train_256_32/'
+_TRAIN_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256/'
+_TRAIN_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_256_32/'
 
 #_VAL_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_images_256/'
 #_VAL_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_256/'
@@ -58,10 +78,30 @@ def _parse_function(imgId, is_train, ann=None):
 
     #input(image_path)
     image = cv2.imread(image_path)
-    image = image.astype(np.float32) / 255 - 0.5
+    image = image.astype(np.float32)
     with open(pickle_path, 'rb') as heat_pickle:
         heatmap = pickle.load(heat_pickle)
-    return image, heatmap
+
+    aug_det = aug.to_deterministic()
+    image = aug_det.augment_image(image)
+    aug_heatmaps2 = aug_det.augment_image(heatmap)
+    '''
+    aug_heatmaps = []
+    for i in range(91):
+        single_heatmap = heatmap[:, :, i]
+        single_heatmap = np.expand_dims(single_heatmap, -1)
+        aug_heatmap = aug_det.augment_image(single_heatmap)
+        #aug_heatmap = np.squeeze(aug_heatmap)
+        aug_heatmaps.append(aug_heatmap)
+        cv2.imshow('aug_map', cv2.resize(aug_heatmap, (512,512), 0))
+        #cv2.imshow('single_map', cv2.resize(single_heatmap, (512, 512),0))
+        #cv2.waitKey(0)
+
+    aug_heatmaps = np.concatenate(aug_heatmaps, axis=-1)
+    '''
+    #input(heatmap.shape)
+    #input(aug_heatmaps.shape)
+    return image, aug_heatmaps2
 
 
 def _set_shapes(img, heatmap):
@@ -90,7 +130,7 @@ def _get_dataset_pipeline(anno, batch_size, epoch, buffer_size, is_train=True):
         ), num_parallel_calls=CONFIG['multiprocessing_num'])
 
     dataset = dataset.map(_set_shapes, num_parallel_calls=CONFIG['multiprocessing_num'])
-    dataset = dataset.batch(64).repeat()
+    dataset = dataset.batch(32).repeat()
     dataset = dataset.prefetch(16)
 
     return dataset

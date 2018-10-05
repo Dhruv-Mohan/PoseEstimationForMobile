@@ -12,11 +12,12 @@ _init_norm = tf.truncated_normal_initializer(stddev=0.01)
 _init_zero = slim.init_ops.zeros_initializer()
 _l2_regularizer_00004 = tf.contrib.layers.l2_regularizer(0.00004)
 _trainable = True
-
+import tensorflow.contrib.layers as layers
 
 def is_trainable(trainable=True):
     global _trainable
     _trainable = trainable
+
 
 
 def max_pool(inputs, k_h, k_w, s_h, s_w, name, padding="SAME"):
@@ -32,11 +33,12 @@ def upsample(inputs, factor, name):
                                     name=name)
 
 def separable_conv(input, c_o, k_s, stride, scope):
+
         with slim.arg_scope([slim.batch_norm],
-                            decay=0.999,
+                            decay=0.95,
                             fused=True,
                             is_training=_trainable,
-                            activation_fn=tf.nn.relu6):
+                            activation_fn=tf.nn.relu):
             output = slim.separable_convolution2d(input,
                                                   num_outputs=None,
                                                   stride=stride,
@@ -59,13 +61,15 @@ def separable_conv(input, c_o, k_s, stride, scope):
                                         weights_regularizer=None,
                                         scope=scope + '_pointwise')
 
+        #output = layers.separable_conv2d(input, c_o, kernel_size=1, depth_multiplier=1, scope=scope + '_depthwise')
+
         return output
 
 
 def inverted_bottleneck(inputs, up_channel_rate, channels, subsample, k_s=3, scope=""):
     with tf.variable_scope("inverted_bottleneck_%s" % scope):
         with slim.arg_scope([slim.batch_norm],
-                            decay=0.999,
+                            decay=0.95,
                             fused=True,
                             is_training=_trainable,
                             activation_fn=tf.nn.relu6):

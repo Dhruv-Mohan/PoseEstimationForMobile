@@ -6,19 +6,19 @@ models:
   cpm_v1: # model tag, which will be used in model loading and must be specific.
     platform: tensorflow
     # path to your tensorflow model's pb file. Support local path, http:// and https://
-    model_file_path: https://raw.githubusercontent.com/edvardHua/PoseEstimationForMobile/master/release/cpm_model/model.pb
+    model_file_path: /home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/overfit.pb
     # sha256_checksum of your model's pb file.
     # use this command to get the sha256_checksum: sha256sum path/to/your/pb/file
-    model_sha256_checksum: e9314c15af001cafde741dde93827f646361b3b4cf08131807a8ec91e4e93134
+    model_sha256_checksum: 949e63881171a7e885b1440780182965f1c0f71754a56d462ae717634ee677f8
     subgraphs:
       - input_tensors:
           - image
         input_shapes:
-          - 1,192,192,3
+          - 1,256,256,3
         output_tensors:
-          - Convolutional_Pose_Machine/stage_5_out
+          - Mconv7_stage3/separable_conv2d
         output_shapes:
-          - 1,96,96,14
+          - 1,32,32,9`1
     # cpu, gpu or cpu+gpu
-    runtime: cpu+gpu
+    runtime:  gpu
     winograd: 0

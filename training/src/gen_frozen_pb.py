@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(description='Tensorflow Pose Estimation Graph E
 parser.add_argument('--model', type=str, default='mv2_cpm', help='')
 parser.add_argument('--size', type=int, default=256)
 parser.add_argument('--checkpoint', type=str, default='/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/model/crap/model-5002.index', help='checkpoint path')
-parser.add_argument('--output_node_names', type=str, default='Mconv7_stage3/separable_conv2d')
-parser.add_argument('--output_graph', type=str, default='./model_v3_overfit.pb', help='output_freeze_path')
+parser.add_argument('--output_node_names', type=str, default='Convolutional_Pose_Machine/Mconv7_stage3/separable_conv2d')
+parser.add_argument('--output_graph', type=str, default='./v3.1_trained_augment.pb', help='output_freeze_path')
 
 args = parser.parse_args()
 
@@ -39,6 +39,7 @@ with tf.Session() as sess:
     latest_ckpt = tf.train.latest_checkpoint('model/mv2_cpm_batch-64_lr-0.01_gpus-1_256x256_experiments-mv2_cpm/')
     saver.restore(sess, latest_ckpt)
     print([tensor.name for tensor in tf.get_default_graph().as_graph_def().node])
+
     from tensorflow.tools.graph_transforms import TransformGraph
 
     transforms = ['add_default_attributes',
@@ -53,7 +54,7 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    with tf.gfile.GFile("overfit.pb", "wb") as f:
+    with tf.gfile.GFile("overfit_duo.pb", "wb") as f:
         f.write(output_graph_def.SerializeToString())
 
 
