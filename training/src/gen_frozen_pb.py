@@ -18,6 +18,8 @@ import argparse
 from networks import get_network
 import os
 
+_DSP_ = True
+
 from pprint import pprint
 
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -41,11 +43,25 @@ with tf.Session() as sess:
     print([tensor.name for tensor in tf.get_default_graph().as_graph_def().node])
 
     from tensorflow.tools.graph_transforms import TransformGraph
-
+    '''
     transforms = ['add_default_attributes',
                   'remove_nodes(op=Identity, op=CheckNumerics)',
                   'fold_batch_norms', 'fold_old_batch_norms',
                   'strip_unused_nodes', 'sort_by_execution_order']
+    '''
+    transforms = ['add_default_attributes',
+                  'strip_unused_nodes(type=float, shape="1,256,256,3")',
+                  'strip_unused_nodes(type=float, shape="1,256,256,3")',
+                        'remove_nodes(op=Identity, op=CheckNumerics, op=Rsqrt)',
+                        'fold_constants(ignore_errors=true)',
+                        'fold_batch_norms',
+                        'fold_old_batch_norms',
+                        'backport_concatv2',
+                  'quantize_weights(minimum_size=2)',
+                  'quantize_nodes',
+                        'remove_control_dependencies',
+                        'strip_unused_nodes',
+                        'sort_by_execution_order']
     transformed_graph_def = TransformGraph(tf.get_default_graph().as_graph_def(), 'Placeholder',
                                            args.output_node_names.split(","), transforms)
 
@@ -54,7 +70,7 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    with tf.gfile.GFile("overfit_duo.pb", "wb") as f:
+    with tf.gfile.GFile("v3.2_140_0[0]_Edge_DSP.pb", "wb") as f:
         f.write(output_graph_def.SerializeToString())
 
 

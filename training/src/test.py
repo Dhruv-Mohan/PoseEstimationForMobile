@@ -37,7 +37,7 @@ import torch.nn.functional as F
 import numbers, math
 import numpy as np
 
-_GT_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/pts/'
+_GT_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/pts/'
 INPUT_WIDTH = 256
 INPUT_HEIGHT = 256
 cpu = torch.device('cpu')
@@ -151,20 +151,21 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
         graph = tf.get_default_graph()
         image = graph.get_tensor_by_name("image:0")
         output = graph.get_tensor_by_name("%s:0" % output_node_names)
-        images = os.listdir('/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/val_set')
+        images = os.listdir('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/open_val/')
         total_l1e = []
         for ima in images:
-            image_full_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/val_set'
+            image_full_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/open_val'
                                            , ima)
-            image_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/svrout',
+            image_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
                                              ima)
-            gt_filename = os.path.splitext(ima)[0] +'.pts'
-            gt_file_path = os.path.join(_GT_PATH_, gt_filename)
-            gt_pts = get_pts(gt_file_path, 90)
+            #gt_filename = os.path.splitext(ima)[0] +'.pts'
+            #gt_file_path = os.path.join(_GT_PATH_, gt_filename)
+            #gt_pts = get_pts(gt_file_path, 90)
 
             image_0 = cv2.imread(image_full_path)
+            #image_0 = cv2.imread('/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg')
             w, h, _ = image_0.shape
-            gt_pts = scale_pts(gt_pts, image_0.shape)
+            #gt_pts = scale_pts(gt_pts, image_0.shape)
             #input(gt_pts)
             image_ = cv2.resize(image_0, (INPUT_WIDTH, INPUT_HEIGHT), interpolation=cv2.INTER_AREA)
             image_ = image_.astype(np.float32)
@@ -208,11 +209,9 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 locs = locs.to(cpu).numpy()
 
                 #input(locs.shape)
-                image_, l1e = draw_pts(image_, gt_pts, coords_argmax, True)
+                image_= draw_pts(image_, pred_pts=coords_argmax)
 
-                l1e = np.mean(l1e)
-                print(l1e)
-                total_l1e.append(l1e)
+
                 #coords = cal_coord(heatmaps)
                 '''
                 for pt in coords:
@@ -224,8 +223,6 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 for pt in coords_argmax:
                     cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,255,0), 1)
 
-                gt_sum_heatmap = np.expand_dims(gt_sum_heatmap, -1)
-                gt_sum_heatmap= np.concatenate([gt_sum_heatmap, gt_sum_heatmap, gt_sum_heatmap], -1)
                 cv2.imshow('image', image_/255)
                 cv2.imshow('heatmap', gt_sum_heatmap)
 
@@ -372,9 +369,9 @@ if __name__ == '__main__':
     # saved_model_graph()
     #metric_prefix(192, 192)
     run_with_frozen_pb(
-         "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/Menpo51220/2.jpg",
+         "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg",
          256,
-         "./overfit_duo.pb",
+         "./mobile_cpm_v3.2_sbr.pb",
          "Convolutional_Pose_Machine/Mconv7_stage3/separable_conv2d"
      )
     display_image()

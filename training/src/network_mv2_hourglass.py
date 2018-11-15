@@ -82,10 +82,19 @@ def build_network(input, trainable):
                          (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
                          (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
                      ], scope="Conv2d_2")
-
+    # 32, 28
+    net = slim.stack(net, inverted_bottleneck,
+                     [
+                         (up_channel_ratio(6), out_channel_ratio(24), 1, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                     ], scope="Conv2d_3")
     net_h_w = int(net.shape[1])
     # build network recursively
-    hg_out = hourglass_module(net, STAGE_NUM)
+    hg_out = hourglass_module(net, 3)
+    return l2s[0], l2s[1], l2s[2]
 
     for index, l2 in enumerate(l2s):
         l2_w_h = int(l2.shape[1])

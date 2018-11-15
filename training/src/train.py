@@ -41,25 +41,25 @@ def get_input(batchsize, epoch, is_train=True):
     #input_pipeline = get_valid_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
     iter = input_pipeline.make_one_shot_iterator()
     _ = iter.get_next()
-    return _[0], _[1]
+    return _[0], _[1], _[2],_[3]
 
 def get_locs_from_hmap(part_map_resized):
     return (np.unravel_index(part_map_resized.argmax(), part_map_resized.shape))
 
-def get_loss_and_output(model, batchsize, input_image, input_heat, reuse_variables=None):
+def get_loss_and_output(model, batchsize, input_image, input_heat1, input_heat2, input_heat3, reuse_variables=None):
     losses = []
 
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variables):
         conv5_2_CPM, Mconv7_stage2, Mconv7_stage3 = get_network(model, input_image,True)
         #_, pred_heatmaps_all = get_network(model, input_image, False)
 
-    ll0 = tf.nn.l2_loss(tf.concat(conv5_2_CPM, axis=0) - input_heat, name='loss_heatmap_stage%d' % 0)
+    ll0 = tf.nn.l2_loss(tf.concat(conv5_2_CPM, axis=0) - input_heat1, name='loss_heatmap_stage%d' % 0)
 
 
-    ll1 = tf.nn.l2_loss(tf.concat(Mconv7_stage2, axis=0) - input_heat, name='loss_heatmap_stage%d' % 1)
+    ll1 = tf.nn.l2_loss(tf.concat(Mconv7_stage2, axis=0) - input_heat2, name='loss_heatmap_stage%d' % 1)
 
 
-    ll2 = tf.nn.l2_loss(tf.concat(Mconv7_stage3, axis=0) - input_heat, name='loss_heatmap_stage%d' % 2)
+    ll2 = tf.nn.l2_loss(tf.concat(Mconv7_stage3, axis=0) - input_heat3, name='loss_heatmap_stage%d' % 2)
 
     losses.append(ll2)
     losses.append(ll1)
@@ -188,12 +188,12 @@ def main(argv=None):
     )
 
     with tf.Graph().as_default(), tf.device("/cpu:0"):
-        input_image, input_heat = get_input(params['batchsize'], params['max_epoch'], is_train=True)
+        input_image, input_heat1, input_heat2, input_heat3  = get_input(params['batchsize'], params['max_epoch'], is_train=True)
         #valid_input_image, valid_input_heat = get_input(params['batchsize'], params['max_epoch'], is_train=False)
 
         global_step = tf.Variable(0, trainable=False)
         learning_rate = tf.train.exponential_decay(float(params['lr']), global_step,
-                                                   decay_steps=10000, decay_rate=float(params['decay_rate']), staircase=True)
+                                                   decay_steps=70000, decay_rate=float(params['decay_rate']), staircase=True)
         opt = tf.train.AdamOptimizer(learning_rate, epsilon=1e-8)
         #tower_grads = []
         reuse_variable = False
@@ -202,7 +202,7 @@ def main(argv=None):
         for i in range(params['gpus']):
             with tf.device("/gpu:%d" % i):
                 with tf.name_scope("GPU_%d" % i):
-                    loss, last_heat_loss, pred_heat = get_loss_and_output(params['model'], params['batchsize'], input_image, input_heat, reuse_variable)
+                    loss, last_heat_loss, pred_heat = get_loss_and_output(params['model'], params['batchsize'], input_image, input_heat1, input_heat2, input_heat3, reuse_variable)
                     reuse_variable = True
                     grads = opt.compute_gradients(loss)
                     #tower_grads.append(grads)
@@ -254,11 +254,12 @@ def main(argv=None):
             summary_writer = tf.summary.FileWriter(os.path.join(params['logpath'], training_name), sess.graph)
             total_step_num = params['num_train_samples'] * params['max_epoch'] // (params['batchsize'] * params['gpus'])
             print("Start training...")
+
             for step in range(total_step_num):
                 start_time = time.time()
 
                 _, loss_value, lh_loss, in_image, in_heat, p_heat = sess.run(
-                    [train_op, loss, last_heat_loss, input_image, input_heat, pred_heat]
+                    [train_op, loss, last_heat_loss, input_image, input_heat3, pred_heat]
                 )
                 #print(in_image.shape)
                 '''

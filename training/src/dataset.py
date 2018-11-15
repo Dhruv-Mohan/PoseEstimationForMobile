@@ -27,7 +27,7 @@ import pickle
 import multiprocessing
 import imgaug as ia
 from imgaug import augmenters as iaa
-
+import random
 aug = iaa.SomeOf((0, None), [
     # iaa.AdditiveGaussianNoise(scale=(0, 0.002)),
     iaa.Noop(),
@@ -51,12 +51,18 @@ BASE_PATH = ""
 #TRAIN_JSON = "train_gm16k.json"stea
 #VALID_JSON = "val_gm16k.json"
 
+_SBR_ = False
+_EDGE_ = True
 TRAIN_ANNO = None
 VALID_ANNO = None
 CONFIG = None
+#_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512/mobile_train_images_256/'
+#_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512/mobile_train_256_32/'
+
 _TRAIN_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256/'
 _TRAIN_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_256_32/'
 
+_SBR_PATH_ = '/media/dhruv/Blue1/Blue1/300VW_Dataset_2015_12_14/'
 #_VAL_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_images_256/'
 #_VAL_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_256/'
 def set_config(config):
@@ -65,10 +71,26 @@ def set_config(config):
     BASE = CONFIG['imgpath']
     BASE_PATH = CONFIG['datapath']
 
+def _get_sobel_map(image):
+    greyim = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    laplacian = cv2.Laplacian(greyim, cv2.CV_32F)
+    laplacian_min = np.min(laplacian)
+    laplacian = laplacian - laplacian_min
+    laplacian_max = np.max(laplacian)
+    laplacian  = laplacian / laplacian_max + 1
+    laplacian  = cv2.resize(laplacian, (32,32), 0)
+    laplacian = np.expand_dims(laplacian, -1)
+    laplacian = np.tile(laplacian, 91)
+
+    return laplacian
+
 
 def _parse_function(imgId, is_train, ann=None):
     imgId = imgId.decode()
+
     pickle_name = os.path.splitext(imgId)[0] + '.pickle'
+    if _SBR_:
+        pickle_name =  _get_sbr_pickle(imgId)
     if is_train == True:
         image_path = join(_TRAIN_IMAGE_PATH_, imgId)
         pickle_path = join(_TRAIN_PICKLE_PATH_, pickle_name)
@@ -78,13 +100,33 @@ def _parse_function(imgId, is_train, ann=None):
 
     #input(image_path)
     image = cv2.imread(image_path)
+    if _EDGE_:
+        lap_edge = _get_sobel_map(image)
     image = image.astype(np.float32)
+    image = cv2.resize(image, (256,256), 0)
     with open(pickle_path, 'rb') as heat_pickle:
         heatmap = pickle.load(heat_pickle)
 
+    if _SBR_:
+        heatmap_s1 = np.transpose(heatmap[0], [1,2,0])
+        heatmap_s2 = np.transpose(heatmap[1], [1,2,0])
+        heatmap_s3 = np.transpose(heatmap[2], [1,2,0])
+    else:
+        heatmap_s1 = heatmap
+        heatmap_s2 = heatmap
+        heatmap_s3 = heatmap
+
+    if _EDGE_:
+        heatmap_s1 = np.multiply(heatmap_s1, lap_edge)
+        heatmap_s2 = np.multiply(heatmap_s2, lap_edge)
+        heatmap_s3 = np.multiply(heatmap_s3, lap_edge)
+
+
     aug_det = aug.to_deterministic()
     image = aug_det.augment_image(image)
-    aug_heatmaps2 = aug_det.augment_image(heatmap)
+    aug_heatmaps1 = aug_det.augment_image(heatmap_s1)
+    aug_heatmaps2 = aug_det.augment_image(heatmap_s2)
+    aug_heatmaps3 = aug_det.augment_image(heatmap_s3)
     '''
     aug_heatmaps = []
     for i in range(91):
@@ -101,20 +143,47 @@ def _parse_function(imgId, is_train, ann=None):
     '''
     #input(heatmap.shape)
     #input(aug_heatmaps.shape)
-    return image, aug_heatmaps2
+    return image, aug_heatmaps1, aug_heatmaps2, aug_heatmaps3
 
 
-def _set_shapes(img, heatmap):
+def _set_shapes(img, heatmap1, heatmap2, heatmap3):
     img.set_shape([CONFIG['input_height'], CONFIG['input_width'], 3])
-    heatmap.set_shape(
+    heatmap1.set_shape(
         [CONFIG['input_height'] / CONFIG['scale'], CONFIG['input_width'] / CONFIG['scale'], CONFIG['n_kpoints']])
-    return img, heatmap
+    heatmap2.set_shape(
+        [CONFIG['input_height'] / CONFIG['scale'], CONFIG['input_width'] / CONFIG['scale'], CONFIG['n_kpoints']])
+    heatmap3.set_shape(
+        [CONFIG['input_height'] / CONFIG['scale'], CONFIG['input_width'] / CONFIG['scale'], CONFIG['n_kpoints']])
+    return img, heatmap1, heatmap2, heatmap3
 
+def _get_sbr_images():
+    folders = os.listdir(_SBR_PATH_)
+    images = []
+    for folder in folders:
+        folder_path = os.path.join(_SBR_PATH_, folder)
+        image_path = os.path.join(folder_path, 'imgs')
+        img_names = os.listdir(image_path)
+        for image_name in img_names:
+            full_image_path = os.path.join(image_path, image_name)
+            images.append(full_image_path)
+
+    random.shuffle(images)
+    return images
+
+def _get_sbr_pickle(Image_path):
+    image_folder, image_name = os.path.split(Image_path)
+    pickle_name = os.path.splitext(image_name)[0] + '.pickle'
+    pickle_folder = os.path.split(image_folder)[0] + '/pickles'
+    pickle_path = os.path.join(pickle_folder, pickle_name)
+    return pickle_path
 
 def _get_dataset_pipeline(anno, batch_size, epoch, buffer_size, is_train=True):
 
     images = os.listdir(_TRAIN_IMAGE_PATH_)
+    if _SBR_:
+        images = _get_sbr_images()
     dataset = tf.data.Dataset.from_tensor_slices(images)
+
     #imgIds = anno.getImgIds()
 
     #dataset = tf.data.Dataset.from_tensor_slices(imgIds)
@@ -125,7 +194,7 @@ def _get_dataset_pipeline(anno, batch_size, epoch, buffer_size, is_train=True):
             tf.py_func(
                 func=_parse_function,
                 inp=[imgId, is_train],
-                Tout=[tf.float32, tf.float32]
+                Tout=[tf.float32, tf.float32,tf.float32,tf.float32]
             )
         ), num_parallel_calls=CONFIG['multiprocessing_num'])
 

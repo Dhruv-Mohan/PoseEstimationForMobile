@@ -64,6 +64,7 @@ def build_cpm(input_):
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 7),
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
+                                  #(up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                               ], scope="cpm_stage_1_bottleneck")
     '''
     stage_1_sepconv = slim.stack(stage_1_bottleneck, separable_conv,
@@ -87,6 +88,7 @@ def build_cpm(input_):
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 7),
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
+                                        #(up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                     ], scope="cpm_stage_2_bottleneck")
     '''
     stage_2_sepconv = slim.stack(stage_2_bottleneck, separable_conv,
@@ -163,8 +165,8 @@ def build_network(input, trainable):
                                   [
                                       (up_channel_ratio(6), out_channel_ratio(24), 1, 3),
                                       (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                      #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                      #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
 
                                   ], scope="MobilenetV2_part_1")
 
@@ -174,8 +176,8 @@ def build_network(input, trainable):
                                       (up_channel_ratio(6), out_channel_ratio(32), 1, 3),
                                       (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
                                       (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
+                                      #(up_channel_ratio(6), out_channel_ratio(32), 0, 3),
+                                      #(up_channel_ratio(6), out_channel_ratio(32), 0, 3),
                                   ], scope="MobilenetV2_part_2")
         '''
         # 64, 56
@@ -375,3 +377,84 @@ def build_network2(input, trainable):
             l2s.append(cpm_out)
 
     return cpm_out, l2s
+
+l2s = []
+
+
+def hourglass_module(inp, stage_nums):
+    if stage_nums > 0:
+        down_sample = max_pool(inp, 2, 2, 2, 2, name="hourglass_downsample_%d" % stage_nums)
+
+        block_front = slim.stack(down_sample, inverted_bottleneck,
+                                 [
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                 ], scope="hourglass_front_%d" % stage_nums)
+        stage_nums -= 1
+        block_mid = hourglass_module(block_front, stage_nums)
+        block_back = inverted_bottleneck(
+            block_mid, up_channel_ratio(6), N_KPOINTS,
+            0, 3, scope="hourglass_back_%d" % stage_nums)
+
+        up_sample = upsample(block_back, 2, "hourglass_upsample_%d" % stage_nums)
+        #input(up_sample.get_shape().as_list())
+        # jump layer
+        branch_jump = slim.stack(inp, inverted_bottleneck,
+                                 [
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                     (up_channel_ratio(6), N_KPOINTS, 0, 3),
+                                 ], scope="hourglass_branch_jump_%d" % stage_nums)
+
+        curr_hg_out = tf.add(up_sample, branch_jump, name="hourglass_out_%d" % stage_nums)
+        # mid supervise
+        #curr_upsample = upsample(curr_hg_out, 2, "curr_upsample_%d" % stage_nums)
+        #input(curr_hg_out.get_shape().as_list())
+        l2s.append(curr_hg_out)
+
+        return curr_hg_out
+
+    _ = inverted_bottleneck(
+        inp, up_channel_ratio(6), out_channel_ratio(24),
+        0, 3, scope="hourglass_mid_%d" % stage_nums
+    )
+    return _
+
+
+def build_network3(input, trainable):
+    is_trainable(trainable)
+
+    net = convb(input, 3, 3, out_channel_ratio(16), 2, name="Conv2d_0")
+
+    # 128, 112
+    net = slim.stack(net, inverted_bottleneck,
+                     [
+                         (1, out_channel_ratio(16), 0, 3),
+                         (1, out_channel_ratio(16), 0, 3)
+                     ], scope="Conv2d_1")
+
+    # 64, 56
+    net = slim.stack(net, inverted_bottleneck,
+                     [
+                         (up_channel_ratio(6), out_channel_ratio(24), 1, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                         (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                     ], scope="Conv2d_2")
+
+    net_h_w = int(net.shape[1])
+    # build network recursively
+    hg_out = hourglass_module(net, 3)
+    crap0 = l2s[0]
+    crap1 = l2s[1]
+    crap2 = l2s[2]
+
+    crap0 = upsample(crap0, 2, "output_upsample_1")
+    crap2 = max_pool(crap2, 2, 2, 2, 2, name="output_upsample_3")
+    return crap0, crap1, crap2
