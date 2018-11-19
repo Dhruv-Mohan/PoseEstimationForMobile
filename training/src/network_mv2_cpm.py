@@ -20,8 +20,8 @@ from network_base import max_pool, upsample, inverted_bottleneck, separable_conv
 import tensorflow.contrib.layers as layers
 N_KPOINTS = 91
 STAGE_NUM = 3
-_SEP_CHANNELS_ = 256  # 512
-_CPM_CHANNELS_ = 96  # 128
+_SEP_CHANNELS_ = 56  # 512
+_CPM_CHANNELS_ = 68  # 128
 
 from nets.mobilenet import conv_blocks as ops
 from nets.mobilenet import mobilenet as lib
@@ -74,7 +74,7 @@ def build_cpm(input_):
                    ], scope='cpm_stage_1_sep_conv')
     '''
 
-    Mconv6_stage2 = layers.separable_conv2d(stage_1_bottleneck, 128, kernel_size=1, scope='Mconv6_stage2',
+    Mconv6_stage2 = layers.separable_conv2d(stage_1_bottleneck, 68, kernel_size=1, scope='Mconv6_stage2',
                                             depth_multiplier=1)
     # Mconv6_stage2 = tf.nn.relu(Mconv6_stage2)
     stage_1_sepconv = layers.separable_conv2d(Mconv6_stage2, N_KPOINTS, kernel_size=1, scope='Mconv7_stage2', depth_multiplier=1,
@@ -97,7 +97,7 @@ def build_cpm(input_):
                                      (N_KPOINTS, 1, 1)
                                  ], scope='cpm_stage_2_sep_conv')
     '''
-    Mconv6_stage3 = layers.separable_conv2d(stage_2_bottleneck, 128, kernel_size=1, scope='Mconv6_stage3',
+    Mconv6_stage3 = layers.separable_conv2d(stage_2_bottleneck, 68, kernel_size=1, scope='Mconv6_stage3',
                                             depth_multiplier=1)
     # Mconv6_stage3 = tf.nn.relu(Mconv6_stage3)
     stage_2_sepconv = layers.separable_conv2d(Mconv6_stage3, N_KPOINTS, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,

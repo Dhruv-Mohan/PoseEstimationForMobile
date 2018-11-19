@@ -43,7 +43,7 @@ with tf.Session() as sess:
     print([tensor.name for tensor in tf.get_default_graph().as_graph_def().node])
 
     from tensorflow.tools.graph_transforms import TransformGraph
-    '''
+
     transforms = ['add_default_attributes',
                   'remove_nodes(op=Identity, op=CheckNumerics)',
                   'fold_batch_norms', 'fold_old_batch_norms',
@@ -62,6 +62,8 @@ with tf.Session() as sess:
                         'remove_control_dependencies',
                         'strip_unused_nodes',
                         'sort_by_execution_order']
+                        
+     '''
     transformed_graph_def = TransformGraph(tf.get_default_graph().as_graph_def(), 'Placeholder',
                                            args.output_node_names.split(","), transforms)
 
@@ -70,7 +72,7 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    with tf.gfile.GFile("v3.2_140_0[0]_Edge_DSP.pb", "wb") as f:
+    with tf.gfile.GFile("3.5.pb", "wb") as f:
         f.write(output_graph_def.SerializeToString())
 
 
