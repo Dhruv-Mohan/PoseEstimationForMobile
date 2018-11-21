@@ -52,7 +52,7 @@ BASE_PATH = ""
 #VALID_JSON = "val_gm16k.json"
 
 _SBR_ = False
-_EDGE_ = True
+_EDGE_ = False
 TRAIN_ANNO = None
 VALID_ANNO = None
 CONFIG = None

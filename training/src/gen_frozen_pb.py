@@ -44,9 +44,12 @@ with tf.Session() as sess:
 
     from tensorflow.tools.graph_transforms import TransformGraph
 
-    transforms = ['add_default_attributes',
+    transforms = ['add_default_attributes','strip_unused_nodes(type=float, shape="1,256,256,3")',
+                  'strip_unused_nodes(type=float, shape="1,256,256,3")',
                   'remove_nodes(op=Identity, op=CheckNumerics)',
+                  'fold_constants(ignore_errors=true)',
                   'fold_batch_norms', 'fold_old_batch_norms',
+                  'remove_control_dependencies',
                   'strip_unused_nodes', 'sort_by_execution_order']
     '''
     transforms = ['add_default_attributes',
@@ -72,10 +75,13 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    with tf.gfile.GFile("3.5.pb", "wb") as f:
+    with tf.gfile.GFile("3.5.2.pb", "wb") as f:
         f.write(output_graph_def.SerializeToString())
 
-
+    import shutil
+    input_path = '/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/3.5.pb'
+    output_path = '/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/android_demo/demo_mace/3.5.pb'
+    shutil.copy(input_path, output_path)
 
     print([tensor.name for tensor in tf.get_default_graph().as_graph_def().node])
     input_graph_def = tf.get_default_graph().as_graph_def()

@@ -158,6 +158,8 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                                            , ima)
             image_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
                                              ima)
+            heatmap_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
+                                             'heatmap_' + ima)
             #gt_filename = os.path.splitext(ima)[0] +'.pts'
             #gt_file_path = os.path.join(_GT_PATH_, gt_filename)
             #gt_pts = get_pts(gt_file_path, 90)
@@ -228,6 +230,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
 
                 #gt_sum_heatmap = np.tile(gt_sum_heatmap, 3)
                 cv2.imwrite(image_output_path, (image_))
+                cv2.imwrite(heatmap_output_path, (gt_sum_heatmap*255))
                 cv2.waitKey(0)
         total_l1e = np.asarray(total_l1e)
         total_l1e = np.mean(total_l1e)
@@ -371,7 +374,7 @@ if __name__ == '__main__':
     run_with_frozen_pb(
          "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg",
          256,
-         "./mobile_cpm_v3.2_sbr.pb",
+         "./3.5.pb",
          "Convolutional_Pose_Machine/Mconv7_stage3/separable_conv2d"
      )
     display_image()
