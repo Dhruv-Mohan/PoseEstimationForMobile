@@ -12,7 +12,8 @@
 # limitations under the License.
 # ===================================================================================
 # -*- coding: utf-8 -*-
-
+_WIDTH_ = 128
+_POINTS_ = 48
 import tensorflow as tf
 
 from dataset_augment import pose_random_scale, pose_rotation, pose_flip, pose_resize_shortestedge_random, \
@@ -39,7 +40,8 @@ iaa.Noop(),
     #iaa.AddElementwise((-10, 10), per_channel=0.5),
     #iaa.AdditiveGaussianNoise(scale=(0, 0.05 * 0.1)),
     # iaa.ContrastNormalization((0.5, 1.5)),
-    iaa.Affine(scale=(0.90, 1.11), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-5, 5), shear=(-1, 1), mode=['edge'])
+    iaa.Affine(scale=(0.90, 1.11), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-5, 5), shear=(-1, 1), mode=['edge']),
+    iaa.Fliplr(0.5)
     #iaa.pad()
     # iaa.CoarseDropout(0.2, size_percent=(0.001, 0.2))
 ], random_order=True)
@@ -61,7 +63,7 @@ CONFIG = None
 
 _TRAIN_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256/'
 _TRAIN_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_256_32/'
-_TRAIN_IMAGE_PATH_  = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/single_train_images_256/'
+_TRAIN_IMAGE_PATH_  = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256_single/'
 _SBR_PATH_ = '/media/dhruv/Blue1/Blue1/300VW_Dataset_2015_12_14/'
 #_VAL_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_images_256/'
 #_VAL_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_256/'
@@ -103,7 +105,7 @@ def _parse_function(imgId, is_train, ann=None):
     if _EDGE_:
         lap_edge = _get_sobel_map(image)
     image = image.astype(np.float32)
-    image = cv2.resize(image, (256,256), 0)
+    image = cv2.resize(image, (_WIDTH_, _WIDTH_), 0)
     with open(pickle_path, 'rb') as heat_pickle:
         heatmap = pickle.load(heat_pickle)
 
@@ -121,7 +123,9 @@ def _parse_function(imgId, is_train, ann=None):
         heatmap_s2 = np.multiply(heatmap_s2, lap_edge)
         heatmap_s3 = np.multiply(heatmap_s3, lap_edge)
 
-
+    heatmap_s1 = heatmap_s1[:,:, 0:_POINTS_]
+    heatmap_s2 = heatmap_s2[:, :, 0:_POINTS_]
+    heatmap_s3 = heatmap_s3[:, :, 0:_POINTS_]
     aug_det = aug.to_deterministic()
     image = aug_det.augment_image(image)
     aug_heatmaps1 = aug_det.augment_image(heatmap_s1)
@@ -149,11 +153,11 @@ def _parse_function(imgId, is_train, ann=None):
 def _set_shapes(img, heatmap1, heatmap2, heatmap3):
     img.set_shape([CONFIG['input_height'], CONFIG['input_width'], 3])
     heatmap1.set_shape(
-        [CONFIG['input_height'] / CONFIG['scale'], CONFIG['input_width'] / CONFIG['scale'], CONFIG['n_kpoints']])
+        [32, 32, _POINTS_])
     heatmap2.set_shape(
-        [CONFIG['input_height'] / CONFIG['scale'], CONFIG['input_width'] / CONFIG['scale'], CONFIG['n_kpoints']])
+        [32, 32, _POINTS_])
     heatmap3.set_shape(
-        [CONFIG['input_height'] / CONFIG['scale'], CONFIG['input_width'] / CONFIG['scale'], CONFIG['n_kpoints']])
+        [32, 32, _POINTS_])
     return img, heatmap1, heatmap2, heatmap3
 
 def _get_sbr_images():

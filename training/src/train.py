@@ -32,8 +32,10 @@ import torch.nn.functional as F
 import numbers, math
 import numpy as np
 
+_WIDTH_ = 128
+_HEIGHT_ = 128
 cpu = torch.device('cpu')
-
+_POINTS_ = 48
 def get_input(batchsize, epoch, is_train=True):
     if True:
         input_pipeline = get_train_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
@@ -282,10 +284,10 @@ def main(argv=None):
                 in_heat = in_heat[0, :, :, :]
                 coords = []
                 gt_coords = []
-                sum_heatmap = np.zeros([256, 256])
-                gt_sum_heatmap = np.zeros([256, 256])
-                for i in range(90):
-                    single_heatmap = cv2.resize(heat[:,:, i], (256,256), cv2.INTER_LANCZOS4)
+                sum_heatmap = np.zeros([_WIDTH_, _WIDTH_])
+                gt_sum_heatmap = np.zeros([_WIDTH_, _WIDTH_])
+                for i in range(48):
+                    single_heatmap = cv2.resize(heat[:,:, i], (_WIDTH_,_WIDTH_), cv2.INTER_LANCZOS4)
                     sum_heatmap += single_heatmap
                     pt = get_locs_from_hmap(single_heatmap)
                     coords.append(pt)

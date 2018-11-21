@@ -29,7 +29,7 @@ def max_pool(inputs, k_h, k_w, s_h, s_w, name, padding="SAME"):
 
 
 def upsample(inputs, factor, name):
-    return tf.image.resize_bilinear(inputs, [int(inputs.get_shape()[1]) * factor, int(inputs.get_shape()[2]) * factor],
+    return tf.image.resize_bilinear(inputs, [int(32), int(32)],
                                     name=name)
 
 def separable_conv(input, c_o, k_s, stride, scope):

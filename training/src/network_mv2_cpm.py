@@ -18,7 +18,7 @@ import tensorflow.contrib.slim as slim
 
 from network_base import max_pool, upsample, inverted_bottleneck, separable_conv, convb, is_trainable
 import tensorflow.contrib.layers as layers
-N_KPOINTS = 91
+N_KPOINTS = 48
 STAGE_NUM = 3
 _SEP_CHANNELS_ = 56  # 512
 _CPM_CHANNELS_ = 68  # 128
@@ -56,6 +56,8 @@ def build_cpm(input_):
                                           activation_fn=None,
                                           weights_initializer=tf.contrib.layers.xavier_initializer())
 
+
+    stage_0_output = upsample(stage_0_sepconv, 35/25, 'stage_0_upsample')
     concat_stage2 = tf.concat(axis=3, values=[stage_0_bottleneck, stage_0_sepconv])
 
     stage_1_bottleneck = slim.stack(concat_stage2, inverted_bottleneck,
@@ -79,7 +81,7 @@ def build_cpm(input_):
     # Mconv6_stage2 = tf.nn.relu(Mconv6_stage2)
     stage_1_sepconv = layers.separable_conv2d(Mconv6_stage2, N_KPOINTS, kernel_size=1, scope='Mconv7_stage2', depth_multiplier=1,
                                             activation_fn=None)
-
+    stage_1_output = upsample(stage_1_sepconv, 35 / 25, 'stage_1_upsample')
     concat_stage3 = tf.concat(axis=3, values=[stage_1_bottleneck, stage_1_sepconv])
 
     stage_2_bottleneck = slim.stack(concat_stage3, inverted_bottleneck,
@@ -102,8 +104,8 @@ def build_cpm(input_):
     # Mconv6_stage3 = tf.nn.relu(Mconv6_stage3)
     stage_2_sepconv = layers.separable_conv2d(Mconv6_stage3, N_KPOINTS, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,
                                             activation_fn=None)
-
-    return stage_0_sepconv, stage_1_sepconv, stage_2_sepconv
+    stage_2_output = upsample(stage_2_sepconv, 35 / 25, 'stage_2_upsample')
+    return stage_0_output, stage_1_output, stage_2_output
     '''
     # STAGE 1
     conv4_3_CPM = ops.expanded_conv(input_, _CPM_CHANNELS_, expansion_size=2)
@@ -158,13 +160,13 @@ def build_network(input, trainable):
         mv2_branch_0 = slim.stack(net, inverted_bottleneck,
                                   [
                                       (1, out_channel_ratio(16), 0, 3),
-                                      (1, out_channel_ratio(16), 0, 3)
+                                      #(1, out_channel_ratio(16), 0, 3)
                                   ], scope="MobilenetV2_part_0")
 
         mv2_branch_1 = slim.stack(mv2_branch_0, inverted_bottleneck,
                                   [
                                       (up_channel_ratio(6), out_channel_ratio(24), 1, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                      #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
                                       #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
                                       #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
 
@@ -176,8 +178,8 @@ def build_network(input, trainable):
                                       (up_channel_ratio(6), out_channel_ratio(32), 1, 3),
                                       (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
                                       (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
-                                      #(up_channel_ratio(6), out_channel_ratio(32), 0, 3),
-                                      #(up_channel_ratio(6), out_channel_ratio(32), 0, 3),
+                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
+                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
                                   ], scope="MobilenetV2_part_2")
         '''
         # 64, 56

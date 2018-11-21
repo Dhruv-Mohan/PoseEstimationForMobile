@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description='Tensorflow Pose Estimation Graph E
 parser.add_argument('--model', type=str, default='mv2_cpm', help='')
 parser.add_argument('--size', type=int, default=256)
 parser.add_argument('--checkpoint', type=str, default='/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/model/crap/model-5002.index', help='checkpoint path')
-parser.add_argument('--output_node_names', type=str, default='Convolutional_Pose_Machine/Mconv7_stage3/separable_conv2d')
+parser.add_argument('--output_node_names', type=str, default='Convolutional_Pose_Machine/stage_2_upsample')
 parser.add_argument('--output_graph', type=str, default='./v3.1_trained_augment.pb', help='output_freeze_path')
 
 args = parser.parse_args()
@@ -38,14 +38,14 @@ input_node = tf.placeholder(tf.float32, shape=[1, args.size, args.size, 3], name
 with tf.Session() as sess:
     net = get_network(args.model, input_node, trainable=False)
     saver = tf.train.Saver()
-    latest_ckpt = tf.train.latest_checkpoint('model/mv2_cpm_batch-64_lr-0.01_gpus-1_256x256_experiments-mv2_cpm/')
+    latest_ckpt = tf.train.latest_checkpoint('model/mv2_cpm_batch-64_lr-0.01_gpus-1_128x128_experiments-mv2_cpm/')
     saver.restore(sess, latest_ckpt)
     print([tensor.name for tensor in tf.get_default_graph().as_graph_def().node])
 
     from tensorflow.tools.graph_transforms import TransformGraph
 
-    transforms = ['add_default_attributes','strip_unused_nodes(type=float, shape="1,256,256,3")',
-                  'strip_unused_nodes(type=float, shape="1,256,256,3")',
+    transforms = ['add_default_attributes','strip_unused_nodes(type=float, shape="1,128,128,3")',
+                  'strip_unused_nodes(type=float, shape="1,128,128,3")',
                   'remove_nodes(op=Identity, op=CheckNumerics)',
                   'fold_constants(ignore_errors=true)',
                   'fold_batch_norms', 'fold_old_batch_norms',
@@ -75,7 +75,7 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    _NAME_ = "3.5.3.pb"
+    _NAME_ = "3.6.2.pb"
     with tf.gfile.GFile(_NAME_, "wb") as f:
         f.write(output_graph_def.SerializeToString())
 
