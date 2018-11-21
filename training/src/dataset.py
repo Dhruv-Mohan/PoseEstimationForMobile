@@ -61,7 +61,7 @@ CONFIG = None
 
 _TRAIN_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256/'
 _TRAIN_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_256_32/'
-
+_TRAIN_IMAGE_PATH_  = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/single_train_images_256/'
 _SBR_PATH_ = '/media/dhruv/Blue1/Blue1/300VW_Dataset_2015_12_14/'
 #_VAL_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_images_256/'
 #_VAL_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_256/'

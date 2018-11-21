@@ -75,12 +75,13 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    with tf.gfile.GFile("3.5.2.pb", "wb") as f:
+    _NAME_ = "3.5.3.pb"
+    with tf.gfile.GFile(_NAME_, "wb") as f:
         f.write(output_graph_def.SerializeToString())
 
     import shutil
-    input_path = '/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/3.5.pb'
-    output_path = '/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/android_demo/demo_mace/3.5.pb'
+    input_path = '/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/' + _NAME_
+    output_path = '/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/android_demo/demo_mace/' + _NAME_
     shutil.copy(input_path, output_path)
 
     print([tensor.name for tensor in tf.get_default_graph().as_graph_def().node])

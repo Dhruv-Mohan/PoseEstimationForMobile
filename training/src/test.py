@@ -374,7 +374,7 @@ if __name__ == '__main__':
     run_with_frozen_pb(
          "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg",
          256,
-         "./3.5.pb",
+         "./3.5.3.pb",
          "Convolutional_Pose_Machine/Mconv7_stage3/separable_conv2d"
      )
     display_image()
