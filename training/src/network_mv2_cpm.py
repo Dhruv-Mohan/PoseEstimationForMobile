@@ -18,10 +18,10 @@ import tensorflow.contrib.slim as slim
 
 from network_base import max_pool, upsample, inverted_bottleneck, separable_conv, convb, is_trainable
 import tensorflow.contrib.layers as layers
-N_KPOINTS = 99
+N_KPOINTS = 69
 STAGE_NUM = 3
-_SEP_CHANNELS_ = 256  # 512
-_CPM_CHANNELS_ = 56  # 128
+_SEP_CHANNELS_ = 512  # 512
+_CPM_CHANNELS_ = 64  # 128
 
 from nets.mobilenet import conv_blocks as ops
 from nets.mobilenet import mobilenet as lib
@@ -57,7 +57,7 @@ def build_cpm(input_):
                                           activation_fn=None,
                                           weights_initializer=tf.contrib.layers.xavier_initializer())
 
-    stage_0_sepconvl = layers.separable_conv2d(conv5_1_CPM, 21, kernel_size=1, scope='conv5_2_CPMl', depth_multiplier=1,
+    stage_0_sepconvl = layers.separable_conv2d(conv5_1_CPM, 21, kernel_size=1, scope='conv5_2_CPMl', depth_multiplier=2,
                                           activation_fn=None,
                                           weights_initializer=tf.contrib.layers.xavier_initializer())
 
@@ -71,7 +71,7 @@ def build_cpm(input_):
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
-                                  #(up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
+                                  (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                               ], scope="cpm_stage_1_bottleneck")
     '''
     stage_1_sepconv = slim.stack(stage_1_bottleneck, separable_conv,
@@ -87,7 +87,7 @@ def build_cpm(input_):
     stage_1_sepconv = layers.separable_conv2d(Mconv6_stage2, N_KPOINTS-20, kernel_size=1, scope='Mconv7_stage2', depth_multiplier=1,
                                             activation_fn=None)
 
-    stage_1_sepconvl = layers.separable_conv2d(Mconv6_stage2, 21, kernel_size=1, scope='Mconv7_stage2l', depth_multiplier=1,
+    stage_1_sepconvl = layers.separable_conv2d(Mconv6_stage2, 21, kernel_size=1, scope='Mconv7_stage2l', depth_multiplier=2,
                                             activation_fn=None)
     #stage_1_output = upsample(stage_1_sepconv, 35 / 25, 'stage_1_upsample')
 
@@ -101,7 +101,7 @@ def build_cpm(input_):
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
-                                        #(up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
+                                        (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                     ], scope="cpm_stage_2_bottleneck")
     '''
     stage_2_sepconv = slim.stack(stage_2_bottleneck, separable_conv,
@@ -117,7 +117,7 @@ def build_cpm(input_):
                                             activation_fn=None)
 
     # Mconv6_stage3 = tf.nn.relu(Mconv6_stage3)
-    stage_2_sepconvl = layers.separable_conv2d(Mconv6_stage3, 21, kernel_size=1, scope='Mconv7_stage3l', depth_multiplier=1,
+    stage_2_sepconvl = layers.separable_conv2d(Mconv6_stage3, 21, kernel_size=1, scope='Mconv7_stage3l', depth_multiplier=2,
                                             activation_fn=None)
     # print(stage_2_sepconv.get_shape().as_list())
     #stage_2_out, back_ground = tf.split(stage_2_sepconv, num_or_size_splits=[N_KPOINTS-21, 1], axis=3)
@@ -216,7 +216,7 @@ def build_network(input,  trainable):
                                       (up_channel_ratio(4), out_channel_ratio(32), 0, 3),
                                       (up_channel_ratio(4), out_channel_ratio(32), 0, 3),
                                       (up_channel_ratio(4), out_channel_ratio(32), 0, 3),
-                                      #(up_channel_ratio(6), out_channel_ratio(32), 0, 3),
+                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
                                   ], scope="MobilenetV2_part_2")
         '''
         # 64, 56

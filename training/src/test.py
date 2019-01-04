@@ -41,6 +41,7 @@ from math import sqrt, fabs
 
 _TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512_25/mobile_train_256_32_91_augmented/'
 _GT_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/pts/'
+
 INPUT_WIDTH = 256
 INPUT_HEIGHT = 256
 cpu = torch.device('cpu')
@@ -405,6 +406,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
         #heat_mean = graph.get_tensor_by_name("heat_mean:0")
         output = graph.get_tensor_by_name("%s:0" % output_node_names)
         images = os.listdir('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val/')
+
         total_l1e = []
         pickle_mean = os.path.join(_TRAIN_PICKLE_PATH_, 'mean.pickle')
         with open(pickle_mean, 'rb') as heat_pickle:
@@ -417,19 +419,22 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                                              ima)
             heatmap_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
                                              'heatmap_' + ima)
-            #gt_filename = os.path.splitext(ima)[0] +'.pts'
-            #gt_file_path = os.path.join(_GT_PATH_, gt_filename)
-            #gt_pts = get_pts(gt_file_path, 90)
+
+            ref_image_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/images', ima)
+            gt_filename = os.path.splitext(ima)[0] +'.pts'
+            gt_file_path = os.path.join(_GT_PATH_, gt_filename)
+            gt_pts = get_pts(gt_file_path, 90)
 
             image_0 = cv2.imread(image_full_path)
+            image_a = cv2.imread(ref_image_path)
             #image_0 = cv2.imread('/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg')
-            w, h, _ = image_0.shape
-            #gt_pts = scale_pts(gt_pts, image_0.shape)
-            #input(gt_pts)
 
             image_ = cv2.resize(image_0, (INPUT_WIDTH, INPUT_HEIGHT), interpolation=cv2.INTER_AREA)
             image_ = image_.astype(np.float32)
-
+            w, h, _ = image_a.shape
+            #gt_pts = scale_pts(gt_pts, image_0.shape)
+            #input(gt_pts)
+            print(w,h)
             with tf.Session() as sess:
                 #a = datetime.datetime.now()
                 start_time = time.time()
@@ -448,7 +453,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 locs, sub_f = find_tensor_peak_batch(heat, 4, 16)
                 sub_f = sub_f.to(cpu).numpy()
 
-                for i in range(99):
+                for i in range(68):
                     if i == 20:
                         continue
                     pt_32 = get_locs_from_hmap(heatmaps[:, :, i])
@@ -506,13 +511,16 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 for pt in coords_argmax:
                     cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,255,0), 1)
 
+                for pt in gt_pts:
+                    cv2.circle(image_, (int(pt[0]*512/h), int(pt[1]*512/w)),3,(0,255,0), 1)
+
                 cv2.imshow('image', image_/255)
                 #cv2.imshow('heatmap', gt_sum_heatmap)
 
                 #gt_sum_heatmap = np.tile(gt_sum_heatmap, 3)
                 cv2.imwrite(image_output_path, (image_))
                 #cv2.imwrite(heatmap_output_path, (gt_sum_heatmap*255))
-                cv2.waitKey(1)
+                cv2.waitKey(0)
         total_l1e = np.asarray(total_l1e)
         total_l1e = np.mean(total_l1e)
         input('Total_l1e= {}'.format(total_l1e))
@@ -655,12 +663,10 @@ if __name__ == '__main__':
     run_with_frozen_pb(
          "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg",
          256,
-         "./3.6.27.pb",
+         "./3.6.28.pb",
          "Convolutional_Pose_Machine/output"
      )
     display_image()
-
-
 
 def get_locs_from_heatmaps(heatmaps):
     coords = []

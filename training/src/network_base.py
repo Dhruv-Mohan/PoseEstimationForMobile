@@ -32,6 +32,11 @@ def upsample(inputs, factor, name):
     return tf.image.resize_bilinear(inputs, [int(32), int(32)],
                                     name=name)
 
+
+def upsample2(inputs, factor, name):
+   return tf.image.resize_bilinear(inputs, [int(inputs.get_shape()[1]) * factor, int(inputs.get_shape()[2]) * factor])
+
+
 def separable_conv(input, c_o, k_s, stride, scope):
 
         with slim.arg_scope([slim.batch_norm],
@@ -130,3 +135,65 @@ def convb(input, k_h, k_w, c_o, stride, name, relu=True):
             scope=name,
             trainable=_trainable)
     return output
+
+
+def base_HG_block(input, channels=256):
+   branch_1 = inverted_bottleneck(input, 2, channels/2, 0, 3)
+   branch_2 = inverted_bottleneck(branch_1, 2, channels/4, 0, 3)
+   branch_3 = inverted_bottleneck(branch_2, 2, channels/4, 0 ,3)
+
+   cat_1 = tf.concat(axis=3, values=[branch_1, branch_2, branch_3])
+
+   residual = tf.add(x=cat_1, y=input)
+   return residual
+
+def hourglass_block(input):
+   sub_stage_1 = base_HG_block(input) #64x64
+   side_stage_1 = base_HG_block(sub_stage_1)
+   pool1 = tf.nn.max_pool(sub_stage_1,
+                         ksize=[1, 2, 2, 1],
+                         strides=[1, 2, 2, 1],
+                         padding="SAME")
+
+   sub_stage_2 = base_HG_block(pool1) #32x32
+   side_stage_2 = base_HG_block(sub_stage_2)
+   pool2 = tf.nn.max_pool(sub_stage_2,
+                         ksize=[1, 2, 2, 1],
+                         strides=[1, 2, 2, 1],
+                         padding="SAME")
+
+   sub_stage_3 = base_HG_block(pool2)  # 16x16
+   side_stage_3 = base_HG_block(sub_stage_3)
+   pool3 = tf.nn.max_pool(sub_stage_3,
+                          ksize=[1, 2, 2, 1],
+                          strides=[1, 2, 2, 1],
+                          padding="SAME")
+
+   sub_stage_4 = base_HG_block(pool3)  # 8x8
+   side_stage_4 = base_HG_block(sub_stage_4)
+   pool4 = tf.nn.max_pool(sub_stage_4,
+                          ksize=[1, 2, 2, 1],
+                          strides=[1, 2, 2, 1],
+                          padding="SAME")
+
+   sub_stage_5a = base_HG_block(pool4)         # 4x4
+   sub_stage_5b = base_HG_block(sub_stage_5a)  # 4x4
+   sub_stage_5c = base_HG_block(sub_stage_5b)  # 4x4
+
+   up_stage_1 = upsample2(sub_stage_5c, 2) # 8x8
+   res_stage_1 = tf.add(x=up_stage_1, y=side_stage_4)
+   sub_stage_6 = base_HG_block(res_stage_1)
+
+   up_stage_2 = upsample2(sub_stage_6, 2) # 16x16
+   res_stage_2 = tf.add(x=up_stage_2, y=side_stage_3)
+   sub_stage_7 = base_HG_block(res_stage_2)
+
+   up_stage_3 = upsample2(sub_stage_7, 2) # 32x32
+   res_stage_3 = tf.add(x=up_stage_3, y=side_stage_2)
+   sub_stage_8 = base_HG_block(res_stage_3)
+
+   up_stage_4 = upsample2(sub_stage_8, 2) # 64x64
+   res_stage_4 = tf.add(x=up_stage_4, y=side_stage_1)
+   sub_stage_9 = base_HG_block(res_stage_4)
+
+   return sub_stage_9

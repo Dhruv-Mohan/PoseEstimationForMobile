@@ -35,7 +35,7 @@ import numpy as np
 _WIDTH_ = 256
 _HEIGHT_ = 256
 cpu = torch.device('cpu')
-_POINTS_ = 99
+_POINTS_ = 69
 def get_input(batchsize, epoch, is_train=True):
     if True:
         input_pipeline = get_train_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
