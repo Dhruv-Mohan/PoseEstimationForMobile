@@ -35,7 +35,7 @@ def upsample(inputs, factor, name):
 def separable_conv(input, c_o, k_s, stride, scope):
 
         with slim.arg_scope([slim.batch_norm],
-                            decay=0.95,
+                            decay=0.9,
                             fused=True,
                             is_training=_trainable,
                             activation_fn=tf.nn.relu):
@@ -69,7 +69,7 @@ def separable_conv(input, c_o, k_s, stride, scope):
 def inverted_bottleneck(inputs, up_channel_rate, channels, subsample, k_s=3, scope=""):
     with tf.variable_scope("inverted_bottleneck_%s" % scope):
         with slim.arg_scope([slim.batch_norm],
-                            decay=0.95,
+                            decay=0.9,
                             fused=True,
                             is_training=_trainable,
                             activation_fn=tf.nn.relu6):
@@ -116,7 +116,7 @@ def inverted_bottleneck(inputs, up_channel_rate, channels, subsample, k_s=3, sco
 
 
 def convb(input, k_h, k_w, c_o, stride, name, relu=True):
-    with slim.arg_scope([slim.batch_norm], decay=0.999, fused=True, is_training=_trainable):
+    with slim.arg_scope([slim.batch_norm], decay=0.9, fused=True, is_training=_trainable):
         output = slim.convolution2d(
             inputs=input,
             num_outputs=c_o,

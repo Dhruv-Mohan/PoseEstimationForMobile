@@ -23,7 +23,7 @@ def draw_pts(image, gt_pts=None, pred_pts=None, get_l1e=False):
     else:
         for pt in pred_pts:
             pred_pt = (int(pt[0]), int(pt[1]))
-            cv2.circle(image, pred_pt, 2, (255, 0, 0))
+            cv2.circle(image, pred_pt, 2, (255, 255, 255))
         return image
 
 

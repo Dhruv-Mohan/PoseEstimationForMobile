@@ -36,11 +36,263 @@ import torch
 import torch.nn.functional as F
 import numbers, math
 import numpy as np
+import pickle
+from math import sqrt, fabs
 
+_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512_25/mobile_train_256_32_91_augmented/'
 _GT_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/pts/'
 INPUT_WIDTH = 256
 INPUT_HEIGHT = 256
 cpu = torch.device('cpu')
+import yaml
+def opencv_matrix(loader, node):
+    mapping = loader.construct_mapping(node, deep=True)
+    mat = np.array(mapping["data"])
+    mat.resize(mapping["rows"], mapping["cols"])
+    return mat
+yaml.add_constructor(u"tag:yaml.org,2002:opencv-matrix", opencv_matrix)
+
+with open('/home/dhruv/Projects/PersonalGit/code/Chapter6_NonRigidFaceTracking/src/bin/shape.obj') as fin:
+    shape_obj = yaml.load(fin.read())
+
+
+def get_x(y, slope, inter):
+    x = (y - inter) / slope
+    return x
+
+def get_slope(p1, p2):
+
+    slope =  (p1[1] - p2[1]) / (p1[0] - p2[0])
+
+    inter = p1[1] - slope * p1[0]
+    y = p1[1] - p2[1]
+
+    distance = math.fabs(y)
+    return slope, inter, distance/2
+
+def align_branch(b, offset, image, mod_flip=1, im_g=None):
+    max_g = np.max(im_g)
+    im_g = im_g / max_g
+    cv2.imshow('img', im_g)
+    sobelx = cv2.Sobel(im_g, cv2.CV_64F, 1, 0, ksize=31)
+    sobely = cv2.Sobel(im_g, cv2.CV_64F, 0, 1, ksize=31)
+
+    # sobelx = np.multiply(sobelx, te_im)
+    # sobely = np.multiply(sobely, te_im)
+    sobel_true = np.sqrt(np.square(sobelx) + np.square(sobely))
+
+    ma = np.max(sobel_true)
+    sobel_true = sobel_true / ma
+
+    b1 = b[0]
+    b2 = b[1]
+    #b1[0] -= offset[0]
+    #b1[1] -= offset[1]
+    #b[1][0] -= offset[0]
+    #b[1][1] -= offset[1]
+    image = np.expand_dims(image, -1)
+    blank = np.zeros_like(image)
+    draw = np.concatenate([image, blank, blank], -1)
+
+    for b_ in b:
+        cv2.circle(draw, (int(b_[0])-offset[0] , int(b_[1]) -offset[1]), 5, (0,0,255))
+
+
+    slope, inter, dist = get_slope(b[0], b[1])
+    print('slope', slope)
+    print('inter', inter)
+    print(dist)
+
+    if image[int(b1[1])-offset[1], int(b1[0])-offset[0]] == 0:
+        mod = +1
+    else:
+        mod = -1
+
+    mod *= mod_flip
+    init_val = image[int(b1[1])-offset[1], int(b1[0])-offset[0]]
+
+    edge_vals = []
+    for i in range(int(dist)+1):
+        y = int(b1[1]  + i*mod)
+        print(y)
+        x = get_x(y, slope, inter)
+        print(x)
+        cv2.circle(draw, (int(x)-offset[0], int(y)-offset[1]), 5, (0, 255, 0))
+        edge_vals.append(sobel_true[int(y)-offset[1], int(x)-offset[0]])
+
+
+
+        '''
+        if image[int(y)-offset[1], int(x)-offset[0]] == init_val:
+            continue
+        else:
+            b[0] =[x,y]
+            break
+        '''
+
+
+    cv2.imshow('sobel', sobel_true)
+    cv2.imshow('image', draw)
+    cv2.waitKey(1)
+    edge_vals = np.asarray(edge_vals)
+    print(np.argmax(edge_vals))
+    y = int(b1[1]  + np.argmax(edge_vals)*mod)
+    x = get_x(y, slope, inter)
+    b[0] = [x, y]
+
+    mod *= -1
+    edge_vals2 =[]
+    for i in range(int(dist)+1):
+        y = int(b2[1]  + i*mod)
+        print(y)
+        x = get_x(y, slope, inter)
+        print(x)
+        cv2.circle(draw, (int(x)-offset[0], int(y)-offset[1]), 5, (0, 255, 0))
+        edge_vals2.append(sobel_true[int(y)-offset[1], int(x)-offset[0]])
+
+    edge_vals2 = np.asarray(edge_vals2)
+    print(np.argmax(edge_vals2))
+    y = int(b2[1]  + np.argmax(edge_vals2)*mod)
+    x = get_x(y, slope, inter)
+    b[1] = [x, y]
+    return b
+
+def align_lip_pts(image, pts=None):
+    lips =[73,67,66,65,64,63,68,69,70,72,71,55,56,57,58,59,74,62,61,60]
+
+
+
+    lip_pts = []
+    for index in lips:
+        lip_pts.append(pts[index])
+    lip_pts = np.asarray(lip_pts, np.int)
+    x,y,w,h = cv2.boundingRect(lip_pts)
+    x -= int(w/5)
+    w += int(w/2.5)
+    y -= int(h/5)
+    h += int(h/2.5)
+    cmat = [0.299, 0.587, 0.114, 0.595716, -0.274453, -0.321263, 0.211456, -0.522591, 0.311135]
+    cmat = np.asarray(cmat)
+    cmat = np.reshape(cmat ,[3,3])
+
+    temp_image = cv2.resize(image, (512,512))
+    temp_image = cv2.cvtColor(temp_image, cv2.COLOR_BGR2RGB)
+    temp_image = temp_image.astype(np.float32)
+    temp_image = np.reshape(temp_image, [-1,3])
+    blank = np.zeros_like(temp_image)
+
+    for i in range(512*512):
+        rgb = temp_image[i,:]
+        yiq = np.matmul(cmat, rgb)
+        blank[i,:] = yiq
+
+    blank = np.reshape(blank, [512,512,-1])
+    blank_q = blank[:,:,-1]
+    blank_q = np.expand_dims(blank_q,-1)
+
+    max_blank = np.max(blank_q)
+
+
+    blank_q_roi = blank_q[y:y + h, x:x + w]
+    print(np.max(blank_q_roi))
+    #blank_q_roi = blank_q_roi.astype(np.int8)
+    print(np.max(blank_q_roi))
+    cv2.imshow('blank_q_roi', blank_q_roi)
+    blank_q = blank_q / max_blank
+    cv2.imwrite('/home/dhruv/Documents/Q.jpg', blank_q*255)
+    blur = cv2.GaussianBlur(blank_q_roi, (1, 1), 0)
+    blur_u = blur.copy()
+    blur_s = blur.copy()
+    blur_u = blur_u.astype(np.uint8)
+    ret, th = cv2.threshold(blur_u, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    ret, th = cv2.threshold(blur, ret-int(ret/3), 1, cv2.THRESH_BINARY)
+    cv2.imshow('th', th)
+    b = [62, 55]
+    #[60, 59]
+    #[72, 63]
+    #[69, 67]
+    #[61, 57]
+    #[70, 65]
+    b1 = []
+    b1.append(pts[b[0]])
+    b1.append(pts[b[1]])
+
+    b_aligned = align_branch(b1, [x,y], th, 1, blur_s)
+    pts[62] = b_aligned[0]
+    pts[55] = b_aligned[1]
+    b = [72, 63]
+    b1 = []
+    b1.append(pts[b[0]])
+    b1.append(pts[b[1]])
+    b_aligned = align_branch(b1, [x,y], th, -1, blur_s)
+    pts[72] = b_aligned[0]
+    pts[63] = b_aligned[1]
+    b = [60, 59]
+    b1 = []
+    b1.append(pts[b[0]])
+    b1.append(pts[b[1]])
+
+    b_aligned = align_branch(b1, [x,y], th, 1, blur_s)
+    pts[60] = b_aligned[0]
+    pts[59] = b_aligned[1]
+
+    b = [69, 67]
+    b1 = []
+    b1.append(pts[b[0]])
+    b1.append(pts[b[1]])
+
+    b_aligned = align_branch(b1, [x,y], th, -1, blur_s)
+    pts[69] = b_aligned[0]
+    pts[67] = b_aligned[1]
+
+
+
+
+
+
+    b = [70, 65]
+    b1 = []
+    b1.append(pts[b[0]])
+    b1.append(pts[b[1]])
+
+    b_aligned = align_branch(b1, [x,y], th, -1, blur_s)
+    pts[70] = b_aligned[0]
+    pts[65] = b_aligned[1]
+
+
+
+    b = [61, 57]
+    b1 = []
+    b1.append(pts[b[0]])
+    b1.append(pts[b[1]])
+
+    b_aligned = align_branch(b1, [x,y], th, 1, blur_s)
+    pts[61] = b_aligned[0]
+    pts[57] = b_aligned[1]
+    cv2.imshow('Q', blank_q)
+
+
+    cv2.waitKey(0)
+
+def calc_params(pts):
+    c = 1.0
+    pts = np.reshape(pts, [-1, 1])
+    V = np.transpose(shape_obj['V'])
+    P = np.matmul(V, pts)
+    scale = P[0]
+    for index, e_d in enumerate(shape_obj['e']):
+        if e_d < 0:
+            continue
+        else:
+            v = c * sqrt(e_d)
+            if (fabs(P[index] / scale) > v):
+                if P[index] > 0:
+                    P[index] = v * scale
+                else:
+                    P[index] = -v * scale
+
+    S = np.matmul(np.transpose(V), P)
+    return S.reshape([-1,2])
 
 def display_image():
     """
@@ -150,11 +402,16 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
 
         graph = tf.get_default_graph()
         image = graph.get_tensor_by_name("image:0")
+        #heat_mean = graph.get_tensor_by_name("heat_mean:0")
         output = graph.get_tensor_by_name("%s:0" % output_node_names)
-        images = os.listdir('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/open_val/')
+        images = os.listdir('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val/')
         total_l1e = []
+        pickle_mean = os.path.join(_TRAIN_PICKLE_PATH_, 'mean.pickle')
+        with open(pickle_mean, 'rb') as heat_pickle:
+            heatmap_mean = pickle.load(heat_pickle)
+
         for ima in images:
-            image_full_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/open_val'
+            image_full_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val'
                                            , ima)
             image_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
                                              ima)
@@ -169,6 +426,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
             w, h, _ = image_0.shape
             #gt_pts = scale_pts(gt_pts, image_0.shape)
             #input(gt_pts)
+
             image_ = cv2.resize(image_0, (INPUT_WIDTH, INPUT_HEIGHT), interpolation=cv2.INTER_AREA)
             image_ = image_.astype(np.float32)
 
@@ -190,28 +448,51 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 locs, sub_f = find_tensor_peak_batch(heat, 4, 16)
                 sub_f = sub_f.to(cpu).numpy()
 
-                for i in range(90):
+                for i in range(99):
+                    if i == 20:
+                        continue
                     pt_32 = get_locs_from_hmap(heatmaps[:, :, i])
                     show_sub_f = np.expand_dims(sub_f[i, :, :], -1)
-                    cv2.imshow('show_subf', show_sub_f)
+                    #cv2.imshow('show_subf', show_sub_f)
                     pt_argmax = soft_argmax(heatmaps[:, :, i], pt_32)
-                    print('subf ={}'.format(sub_f[i, :, :]))
+                    #print('subf ={}'.format(sub_f[i, :, :]))
                     cv2.waitKey(1)
                     coords_argmax.append(pt_argmax)
                     #pt_32[0] *= 16
                     #pt_32[0] *= 16
                     coords_32.append(pt_32)
                     single_heatmap = cv2.resize(heatmaps[:, :, i], (512, 512), 0)
+                    #print(i)
+                    #cv2.imshow('heat', single_heatmap)
+                    #cv2.waitKey(1)
+                    cv2.circle(single_heatmap, (int(pt_argmax[0]), int(pt_argmax[1])), 3, (0, 0, 255), -1)
+
+                    #cv2.imwrite(os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
+                    #                         'heatmap_' +str(i) + ima), (single_heatmap * 255))
                     gt_sum_heatmap += single_heatmap
                     pt = get_locs_from_hmap(single_heatmap)
                     coords.append(pt)
+
+                image_ = cv2.resize(image_, (512, 512), 0)
+                for ind, pt in enumerate(coords_argmax):
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    #cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,0,0), 1)
+                    #cv2.putText(image_, str(ind),  (int(pt[0]), int(pt[1])),  font, 0.5, (200, 0, 0), 1, cv2.LINE_AA)
+                #align_lip_pts(image_0, coords_argmax)
+                #new_shape_pts = calc_params(np.asarray(coords_argmax))
+                #new_shape_pts = calc_params(new_shape_pts)
+                #new_shape_pts = calc_params(new_shape_pts)
+                #new_shape_pts = calc_params(new_shape_pts)
+                #new_shape_pts = calc_params(new_shape_pts)
+                #new_shape_pts = calc_params(new_shape_pts)
+                #new_shape_pts = calc_params(new_shape_pts)
+
                 image_ = cv2.resize(image_, (512,512), 0)
                 #l1e = 0
 
                 locs = locs.to(cpu).numpy()
-
                 #input(locs.shape)
-                image_= draw_pts(image_, pred_pts=coords_argmax)
+                #image_= draw_pts(image_, pred_pts=new_shape_pts)
 
 
                 #coords = cal_coord(heatmaps)
@@ -226,12 +507,12 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                     cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,255,0), 1)
 
                 cv2.imshow('image', image_/255)
-                cv2.imshow('heatmap', gt_sum_heatmap)
+                #cv2.imshow('heatmap', gt_sum_heatmap)
 
                 #gt_sum_heatmap = np.tile(gt_sum_heatmap, 3)
                 cv2.imwrite(image_output_path, (image_))
-                cv2.imwrite(heatmap_output_path, (gt_sum_heatmap*255))
-                cv2.waitKey(0)
+                #cv2.imwrite(heatmap_output_path, (gt_sum_heatmap*255))
+                cv2.waitKey(1)
         total_l1e = np.asarray(total_l1e)
         total_l1e = np.mean(total_l1e)
         input('Total_l1e= {}'.format(total_l1e))
@@ -257,9 +538,9 @@ def soft_argmax(patch_t, coord):
     test_patch = cv2.getRectSubPix(patch_t, (32, 32), (coord[1], coord[0]))
     show_patch = np.expand_dims(patch,-1)
     #test_show_patch = np.expand_dims(test_patch, -1)
-    cv2.imshow('subrect', show_patch)
+    #cv2.imshow('subrect', show_patch)
     #cv2.imshow('test subrect', test_show_patch*255)
-    print('patch ={}'.format(patch))
+    #print('patch ={}'.format(patch))
     #input(heat_map.shape)
     patch_sum = np.sum(patch)
     #input('coord = {}'.format(coord))
@@ -351,7 +632,7 @@ def find_tensor_peak_batch(heatmap, radius, downsample, threshold=0.000001):
     X_test = X_test.to(cpu).numpy()
     num_x_sum_region =x_sum_region*X_test
     x_sum = np.sum(num_x_sum_region)
-    input('X_TEST_NUMPY = {}'.format(num_x_sum_region))
+    #input('X_TEST_NUMPY = {}'.format(num_x_sum_region))
     #input('INDEX_W= {}'.format(index_w[0]))
     #sum_region = sum_region.to(cpu).numpy()
     x = torch.sum((sub_feature * X).view(num_pts, -1), 1) / sum_region + index_w
@@ -374,8 +655,8 @@ if __name__ == '__main__':
     run_with_frozen_pb(
          "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg",
          256,
-         "./3.5.3.pb",
-         "Convolutional_Pose_Machine/Mconv7_stage3/separable_conv2d"
+         "./3.6.27.pb",
+         "Convolutional_Pose_Machine/output"
      )
     display_image()
 

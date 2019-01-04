@@ -18,15 +18,15 @@ import tensorflow.contrib.slim as slim
 
 from network_base import max_pool, upsample, inverted_bottleneck, separable_conv, convb, is_trainable
 import tensorflow.contrib.layers as layers
-N_KPOINTS = 48
+N_KPOINTS = 99
 STAGE_NUM = 3
-_SEP_CHANNELS_ = 56  # 512
-_CPM_CHANNELS_ = 68  # 128
+_SEP_CHANNELS_ = 256  # 512
+_CPM_CHANNELS_ = 56  # 128
 
 from nets.mobilenet import conv_blocks as ops
 from nets.mobilenet import mobilenet as lib
 from nets.mobilenet import mobilenet_v2
-out_channel_ratio = lambda d: max(int(d * 1.4), 8)
+out_channel_ratio = lambda d: max(int(d * 1.2), 8)
 up_channel_ratio = lambda d: int(d * 1.)
 out_channel_cpm = lambda d: max(int(d * 0.75), 8)
 
@@ -34,6 +34,7 @@ out_channel_cpm = lambda d: max(int(d * 0.75), 8)
 def build_cpm(input_):
 
     # STAGE 1
+    #concat_input = tf.concat(axis=3, values=[input_, heat_mean])
     stage_0_bottleneck = slim.stack(input_, inverted_bottleneck,
                               [
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
@@ -52,18 +53,22 @@ def build_cpm(input_):
                                           depth_multiplier=1,
                                           weights_initializer=tf.contrib.layers.xavier_initializer())
     # conv5_1_CPM = tf.nn.relu(conv5_1_CPM)
-    stage_0_sepconv = layers.separable_conv2d(conv5_1_CPM, N_KPOINTS, kernel_size=1, scope='conv5_2_CPM', depth_multiplier=1,
+    stage_0_sepconv = layers.separable_conv2d(conv5_1_CPM, N_KPOINTS-20, kernel_size=1, scope='conv5_2_CPM', depth_multiplier=1,
                                           activation_fn=None,
                                           weights_initializer=tf.contrib.layers.xavier_initializer())
 
+    stage_0_sepconvl = layers.separable_conv2d(conv5_1_CPM, 21, kernel_size=1, scope='conv5_2_CPMl', depth_multiplier=1,
+                                          activation_fn=None,
+                                          weights_initializer=tf.contrib.layers.xavier_initializer())
 
-    stage_0_output = upsample(stage_0_sepconv, 35/25, 'stage_0_upsample')
-    concat_stage2 = tf.concat(axis=3, values=[stage_0_bottleneck, stage_0_sepconv])
+    #stage_0_output = upsample(stage_0_sepconv, 35/25, 'stage_0_upsample')
+    temp_concat_2 = tf.concat(axis=3, values=[stage_0_sepconv, stage_0_sepconvl])
+    concat_stage2 = tf.concat(axis=3, values=[stage_0_bottleneck, temp_concat_2])
 
     stage_1_bottleneck = slim.stack(concat_stage2, inverted_bottleneck,
                               [
-                                  (up_channel_ratio(1), _CPM_CHANNELS_, 0, 7),
-                                  (up_channel_ratio(2), _CPM_CHANNELS_, 0, 7),
+                                  (up_channel_ratio(1), _CPM_CHANNELS_, 0, 3),
+                                  (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                   (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                   #(up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
@@ -76,18 +81,24 @@ def build_cpm(input_):
                    ], scope='cpm_stage_1_sep_conv')
     '''
 
-    Mconv6_stage2 = layers.separable_conv2d(stage_1_bottleneck, 68, kernel_size=1, scope='Mconv6_stage2',
+    Mconv6_stage2 = layers.separable_conv2d(stage_1_bottleneck, _SEP_CHANNELS_, kernel_size=1, scope='Mconv6_stage2',
                                             depth_multiplier=1)
     # Mconv6_stage2 = tf.nn.relu(Mconv6_stage2)
-    stage_1_sepconv = layers.separable_conv2d(Mconv6_stage2, N_KPOINTS, kernel_size=1, scope='Mconv7_stage2', depth_multiplier=1,
+    stage_1_sepconv = layers.separable_conv2d(Mconv6_stage2, N_KPOINTS-20, kernel_size=1, scope='Mconv7_stage2', depth_multiplier=1,
                                             activation_fn=None)
-    stage_1_output = upsample(stage_1_sepconv, 35 / 25, 'stage_1_upsample')
-    concat_stage3 = tf.concat(axis=3, values=[stage_1_bottleneck, stage_1_sepconv])
+
+    stage_1_sepconvl = layers.separable_conv2d(Mconv6_stage2, 21, kernel_size=1, scope='Mconv7_stage2l', depth_multiplier=1,
+                                            activation_fn=None)
+    #stage_1_output = upsample(stage_1_sepconv, 35 / 25, 'stage_1_upsample')
+
+    temp_concat3 = tf.concat(axis=3, values=[stage_1_sepconv, stage_1_sepconvl])
+
+    concat_stage3 = tf.concat(axis=3, values=[stage_1_bottleneck, temp_concat3])
 
     stage_2_bottleneck = slim.stack(concat_stage3, inverted_bottleneck,
                                     [
-                                        (up_channel_ratio(1), _CPM_CHANNELS_, 0, 7),
-                                        (up_channel_ratio(2), _CPM_CHANNELS_, 0, 7),
+                                        (up_channel_ratio(1), _CPM_CHANNELS_, 0, 3),
+                                        (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                         (up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
                                         #(up_channel_ratio(2), _CPM_CHANNELS_, 0, 3),
@@ -99,13 +110,39 @@ def build_cpm(input_):
                                      (N_KPOINTS, 1, 1)
                                  ], scope='cpm_stage_2_sep_conv')
     '''
-    Mconv6_stage3 = layers.separable_conv2d(stage_2_bottleneck, 68, kernel_size=1, scope='Mconv6_stage3',
+    Mconv6_stage3 = layers.separable_conv2d(stage_2_bottleneck, _SEP_CHANNELS_, kernel_size=1, scope='Mconv6_stage3',
                                             depth_multiplier=1)
     # Mconv6_stage3 = tf.nn.relu(Mconv6_stage3)
-    stage_2_sepconv = layers.separable_conv2d(Mconv6_stage3, N_KPOINTS, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,
+    stage_2_sepconv = layers.separable_conv2d(Mconv6_stage3, N_KPOINTS-20, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,
                                             activation_fn=None)
-    stage_2_output = upsample(stage_2_sepconv, 35 / 25, 'stage_2_upsample')
-    return stage_0_output, stage_1_output, stage_2_output
+
+    # Mconv6_stage3 = tf.nn.relu(Mconv6_stage3)
+    stage_2_sepconvl = layers.separable_conv2d(Mconv6_stage3, 21, kernel_size=1, scope='Mconv7_stage3l', depth_multiplier=1,
+                                            activation_fn=None)
+    # print(stage_2_sepconv.get_shape().as_list())
+    #stage_2_out, back_ground = tf.split(stage_2_sepconv, num_or_size_splits=[N_KPOINTS-21, 1], axis=3)
+
+
+    #stage_2_output = upsample(stage_2_sepconv, 35 / 25, 'stage_2_upsample')
+    #stage_2_sepconv = stage_2_sepconv + heat_mean
+    with tf.variable_scope('rnn', reuse=tf.AUTO_REUSE ) as scope:
+        stage_2_sepconvl = layers.separable_conv2d(stage_2_sepconvl, 21, kernel_size=3, scope=scope, depth_multiplier=1,
+                                            activation_fn=None)
+
+    with tf.variable_scope('rnn', reuse=tf.AUTO_REUSE ) as scope:
+        stage_2_sepconvl = layers.separable_conv2d(stage_2_sepconvl, 21, kernel_size=3, scope=scope, depth_multiplier=1,
+                                            activation_fn=None)
+
+    with tf.variable_scope('rnn', reuse=tf.AUTO_REUSE ) as scope:
+        stage_2_sepconvl = layers.separable_conv2d(stage_2_sepconvl, 21, kernel_size=3, scope=scope, depth_multiplier=1,
+                                            activation_fn=None)
+
+    with tf.variable_scope('rnn', reuse=tf.AUTO_REUSE ) as scope:
+        stage_2_sepconvl = layers.separable_conv2d(stage_2_sepconvl, 21, kernel_size=3, scope=scope, depth_multiplier=1,
+                                            activation_fn=None)
+
+    out_put = tf.concat(axis=3, values=[stage_2_sepconvl, stage_2_sepconv], name='output')
+    return stage_0_sepconv, stage_1_sepconv, stage_2_sepconv, stage_0_sepconvl, stage_1_sepconvl, stage_2_sepconvl, out_put
     '''
     # STAGE 1
     conv4_3_CPM = ops.expanded_conv(input_, _CPM_CHANNELS_, expansion_size=2)
@@ -149,7 +186,7 @@ def build_cpm(input_):
     return conv5_2_CPM, Mconv7_stage2, Mconv7_stage3
 
 
-def build_network(input, trainable):
+def build_network(input,  trainable):
     is_trainable(trainable)
 
     net = convb(input, 3, 3, out_channel_ratio(32), 2, name="Conv2d_0")
@@ -165,9 +202,9 @@ def build_network(input, trainable):
 
         mv2_branch_1 = slim.stack(mv2_branch_0, inverted_bottleneck,
                                   [
-                                      (up_channel_ratio(6), out_channel_ratio(24), 1, 3),
-                                      #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
-                                      #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                      (up_channel_ratio(4), out_channel_ratio(24), 1, 3),
+                                      (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                      (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
                                       #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
 
                                   ], scope="MobilenetV2_part_1")
@@ -175,11 +212,11 @@ def build_network(input, trainable):
         # 32, 28
         mv2_branch_2 = slim.stack(mv2_branch_1, inverted_bottleneck,
                                   [
-                                      (up_channel_ratio(6), out_channel_ratio(32), 1, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
-                                      (up_channel_ratio(6), out_channel_ratio(32), 0, 3),
+                                      (up_channel_ratio(4), out_channel_ratio(32), 1, 3),
+                                      (up_channel_ratio(4), out_channel_ratio(32), 0, 3),
+                                      (up_channel_ratio(4), out_channel_ratio(32), 0, 3),
+                                      (up_channel_ratio(4), out_channel_ratio(32), 0, 3),
+                                      #(up_channel_ratio(6), out_channel_ratio(32), 0, 3),
                                   ], scope="MobilenetV2_part_2")
         '''
         # 64, 56
@@ -227,8 +264,8 @@ def build_network(input, trainable):
         '''
 
     with tf.variable_scope("Convolutional_Pose_Machine"):
-        conv5_2_CPM, Mconv7_stage2, Mconv7_stage3 = build_cpm(mv2_branch_2)
-        return conv5_2_CPM, Mconv7_stage2, Mconv7_stage3
+        stage_0_sepconv, stage_1_sepconv, stage_2_sepconv, stage_0_sepconvl, stage_1_sepconvl, stage_2_sepconvl, out_put = build_cpm(mv2_branch_2)
+        return stage_0_sepconv, stage_1_sepconv, stage_2_sepconv, stage_0_sepconvl, stage_1_sepconvl, stage_2_sepconvl, out_put
 
         l2s = []
         prev = None

@@ -12,8 +12,8 @@
 # limitations under the License.
 # ===================================================================================
 # -*- coding: utf-8 -*-
-_WIDTH_ = 128
-_POINTS_ = 48
+_WIDTH_ = 256
+_POINTS_ = 99
 import tensorflow as tf
 
 from dataset_augment import pose_random_scale, pose_rotation, pose_flip, pose_resize_shortestedge_random, \
@@ -40,8 +40,8 @@ iaa.Noop(),
     #iaa.AddElementwise((-10, 10), per_channel=0.5),
     #iaa.AdditiveGaussianNoise(scale=(0, 0.05 * 0.1)),
     # iaa.ContrastNormalization((0.5, 1.5)),
-    iaa.Affine(scale=(0.90, 1.11), translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)}, rotate=(-5, 5), shear=(-1, 1), mode=['edge']),
-    iaa.Fliplr(0.5)
+    iaa.Affine(scale=(0.80, 1.25), translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)}, rotate=(-10, 10), shear=(-1, 1), mode=['edge'])
+    #iaa.Fliplr(0.5)
     #iaa.pad()
     # iaa.CoarseDropout(0.2, size_percent=(0.001, 0.2))
 ], random_order=True)
@@ -61,9 +61,20 @@ CONFIG = None
 #_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512/mobile_train_images_256/'
 #_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512/mobile_train_256_32/'
 
-_TRAIN_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256/'
-_TRAIN_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_256_32/'
-_TRAIN_IMAGE_PATH_  = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256_single/'
+#HELEN
+_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/300W_LP/out/helen_images'
+_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/300W_LP/out/helen_pts'
+
+#GROOM
+_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512_25/mobile_train_images_256_91/'
+_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512_25/mobile_train_256_32_91_augmented/'
+
+#WLFW
+_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM/Train/images'
+_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM/Train/pts'
+
+
+#_TRAIN_IMAGE_PATH_  = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256_single/'
 _SBR_PATH_ = '/media/dhruv/Blue1/Blue1/300VW_Dataset_2015_12_14/'
 #_VAL_IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_images_256/'
 #_VAL_PICKLE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_16k/Menpo51220/mobile_val_256/'
@@ -74,16 +85,22 @@ def set_config(config):
     BASE_PATH = CONFIG['datapath']
 
 def _get_sobel_map(image):
-    greyim = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    laplacian = cv2.Laplacian(greyim, cv2.CV_32F)
-    laplacian_min = np.min(laplacian)
-    laplacian = laplacian - laplacian_min
-    laplacian_max = np.max(laplacian)
-    laplacian  = laplacian / laplacian_max + 1
-    laplacian  = cv2.resize(laplacian, (32,32), 0)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=31)
+    sobely = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=31)
+
+    # sobelx = np.multiply(sobelx, te_im)
+    # sobely = np.multiply(sobely, te_im)
+    sobel_true = np.sqrt(np.square(sobelx) + np.square(sobely))
+
+    ma = np.max(sobel_true)
+    sobel_true = sobel_true / ma
+    sobel_true = cv2.resize(sobel_true, (32,32))
+
+    laplacian = sobel_true * 2
     laplacian = np.expand_dims(laplacian, -1)
     laplacian = np.tile(laplacian, 91)
-
+    laplacian = laplacian.astype(np.float32)
     return laplacian
 
 
@@ -96,9 +113,11 @@ def _parse_function(imgId, is_train, ann=None):
     if is_train == True:
         image_path = join(_TRAIN_IMAGE_PATH_, imgId)
         pickle_path = join(_TRAIN_PICKLE_PATH_, pickle_name)
+
     else:
         image_path = join(_VAL_IMAGE_PATH_, imgId)
         pickle_path = join(_VAL_PICKLE_PATH_, pickle_name)
+
 
     #input(image_path)
     image = cv2.imread(image_path)
@@ -108,6 +127,11 @@ def _parse_function(imgId, is_train, ann=None):
     image = cv2.resize(image, (_WIDTH_, _WIDTH_), 0)
     with open(pickle_path, 'rb') as heat_pickle:
         heatmap = pickle.load(heat_pickle)
+
+
+    heatmap_mean = heatmap
+    heatmap = heatmap.astype(np.float32)
+    heatmap = np.nan_to_num(heatmap)
 
     if _SBR_:
         heatmap_s1 = np.transpose(heatmap[0], [1,2,0])
@@ -123,14 +147,26 @@ def _parse_function(imgId, is_train, ann=None):
         heatmap_s2 = np.multiply(heatmap_s2, lap_edge)
         heatmap_s3 = np.multiply(heatmap_s3, lap_edge)
 
-    heatmap_s1 = heatmap_s1[:,:, 0:_POINTS_]
-    heatmap_s2 = heatmap_s2[:, :, 0:_POINTS_]
-    heatmap_s3 = heatmap_s3[:, :, 0:_POINTS_]
     aug_det = aug.to_deterministic()
     image = aug_det.augment_image(image)
     aug_heatmaps1 = aug_det.augment_image(heatmap_s1)
     aug_heatmaps2 = aug_det.augment_image(heatmap_s2)
     aug_heatmaps3 = aug_det.augment_image(heatmap_s3)
+
+    aug_heatmaps1_lips = aug_heatmaps1[:,:,76:96]
+    aug_heatmaps2_lips = aug_heatmaps2[:, :,76:96]
+    aug_heatmaps3_lips = aug_heatmaps3[:, :,76:96]
+
+    back = np.expand_dims(aug_heatmaps3[:,:,-1], -1)
+    eyes = aug_heatmaps3[:,:,96:-1]
+    aug_heatmaps1_rest = np.concatenate([aug_heatmaps1[:,:,0:76], eyes, back], -1)
+    aug_heatmaps2_rest = np.concatenate([aug_heatmaps2[:,:,0:76],  eyes, back], -1)
+    aug_heatmaps3_rest = np.concatenate([aug_heatmaps3[:,:,0:76],  eyes, back], -1)
+    aug_heatmaps1_lips = np.concatenate([aug_heatmaps1_lips, back], -1)
+    aug_heatmaps2_lips = np.concatenate([aug_heatmaps2_lips, back], -1)
+    aug_heatmaps3_lips = np.concatenate([aug_heatmaps3_lips, back], -1)
+
+
     '''
     aug_heatmaps = []
     for i in range(91):
@@ -147,18 +183,27 @@ def _parse_function(imgId, is_train, ann=None):
     '''
     #input(heatmap.shape)
     #input(aug_heatmaps.shape)
-    return image, aug_heatmaps1, aug_heatmaps2, aug_heatmaps3
+    return image, aug_heatmaps1_rest, aug_heatmaps2_rest, aug_heatmaps3_rest,aug_heatmaps1_lips, aug_heatmaps2_lips, aug_heatmaps3_lips, heatmap_mean
 
 
-def _set_shapes(img, heatmap1, heatmap2, heatmap3):
+def _set_shapes(img, heatmap1, heatmap2, heatmap3, heatmap1l, heatmap2l, heatmap3l,heatmap_mean):
     img.set_shape([CONFIG['input_height'], CONFIG['input_width'], 3])
     heatmap1.set_shape(
-        [32, 32, _POINTS_])
+        [32, 32, _POINTS_-20])
     heatmap2.set_shape(
-        [32, 32, _POINTS_])
+        [32, 32, _POINTS_-20])
     heatmap3.set_shape(
+        [32, 32, _POINTS_-20])
+    heatmap1l.set_shape(
+        [32, 32, 21])
+    heatmap2l.set_shape(
+        [32, 32, 21])
+    heatmap3l.set_shape(
+        [32, 32, 21])
+    heatmap_mean.set_shape(
         [32, 32, _POINTS_])
-    return img, heatmap1, heatmap2, heatmap3
+
+    return img, heatmap1, heatmap2, heatmap3, heatmap1l, heatmap2l, heatmap3l, heatmap_mean
 
 def _get_sbr_images():
     folders = os.listdir(_SBR_PATH_)
@@ -198,12 +243,13 @@ def _get_dataset_pipeline(anno, batch_size, epoch, buffer_size, is_train=True):
             tf.py_func(
                 func=_parse_function,
                 inp=[imgId, is_train],
-                Tout=[tf.float32, tf.float32,tf.float32,tf.float32]
+                Tout=[tf.float32, tf.float32 ,tf.float32,tf.float32, tf.float32 ,tf.float32,tf.float32, tf.float32]
             )
         ), num_parallel_calls=CONFIG['multiprocessing_num'])
 
     dataset = dataset.map(_set_shapes, num_parallel_calls=CONFIG['multiprocessing_num'])
     dataset = dataset.batch(32).repeat()
+    dataset.shuffle(20)
     dataset = dataset.prefetch(16)
 
     return dataset

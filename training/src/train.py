@@ -32,10 +32,10 @@ import torch.nn.functional as F
 import numbers, math
 import numpy as np
 
-_WIDTH_ = 128
-_HEIGHT_ = 128
+_WIDTH_ = 256
+_HEIGHT_ = 256
 cpu = torch.device('cpu')
-_POINTS_ = 48
+_POINTS_ = 99
 def get_input(batchsize, epoch, is_train=True):
     if True:
         input_pipeline = get_train_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
@@ -43,16 +43,16 @@ def get_input(batchsize, epoch, is_train=True):
     #input_pipeline = get_valid_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
     iter = input_pipeline.make_one_shot_iterator()
     _ = iter.get_next()
-    return _[0], _[1], _[2],_[3]
+    return _[0], _[1], _[2],_[3] , _[4], _[5],_[6] , _[7]
 
 def get_locs_from_hmap(part_map_resized):
     return (np.unravel_index(part_map_resized.argmax(), part_map_resized.shape))
 
-def get_loss_and_output(model, batchsize, input_image, input_heat1, input_heat2, input_heat3, reuse_variables=None):
+def get_loss_and_output(model, batchsize, input_image, input_heat1, input_heat2, input_heat3,input_heat1l, input_heat2l, input_heat3l, heat_mean, reuse_variables=None):
     losses = []
 
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variables):
-        conv5_2_CPM, Mconv7_stage2, Mconv7_stage3 = get_network(model, input_image,True)
+        conv5_2_CPM, Mconv7_stage2, Mconv7_stage3, conv5_2_CPMl, Mconv7_stage2l, Mconv7_stage3l, output = get_network(model, input_image, True)
         #_, pred_heatmaps_all = get_network(model, input_image, False)
 
     ll0 = tf.nn.l2_loss(tf.concat(conv5_2_CPM, axis=0) - input_heat1, name='loss_heatmap_stage%d' % 0)
@@ -63,9 +63,20 @@ def get_loss_and_output(model, batchsize, input_image, input_heat1, input_heat2,
 
     ll2 = tf.nn.l2_loss(tf.concat(Mconv7_stage3, axis=0) - input_heat3, name='loss_heatmap_stage%d' % 2)
 
+    ll0l = tf.nn.l2_loss(tf.concat(conv5_2_CPMl, axis=0) - input_heat1l, name='loss_heatmap_stage%d' % 0)
+
+
+    ll1l = tf.nn.l2_loss(tf.concat(Mconv7_stage2l, axis=0) - input_heat2l, name='loss_heatmap_stage%d' % 1)
+
+
+    ll2l = tf.nn.l2_loss(tf.concat(Mconv7_stage3l, axis=0) - input_heat3l, name='loss_heatmap_stage%d' % 2)
+
     losses.append(ll2)
     losses.append(ll1)
     losses.append(ll0)
+    losses.append(ll2l)
+    losses.append(ll1l)
+    losses.append(ll0l)
     '''
     for idx, pred_heat in enumerate(pred_heatmaps_all):
         loss_l2 = tf.nn.l2_loss(tf.concat(pred_heat, axis=0) - input_heat, name='loss_heatmap_stage%d' % idx)
@@ -78,8 +89,25 @@ def get_loss_and_output(model, batchsize, input_image, input_heat1, input_heat2,
     '''
     total_loss = tf.reduce_sum(losses) / batchsize
     total_loss_ll_heat = tf.reduce_sum(ll2) / batchsize
-    return total_loss, total_loss_ll_heat, Mconv7_stage3
+    return total_loss, total_loss_ll_heat, output
 
+def optimistic_restore(session, save_file):
+    reader = tf.train.NewCheckpointReader(save_file)
+    saved_shapes = reader.get_variable_to_shape_map()
+    var_names = sorted([(var.name, var.name.split(':')[0]) for var in tf.global_variables()
+            if var.name.split(':')[0] in saved_shapes])
+    restore_vars = []
+    name2var = dict(zip(map(lambda x:x.name.split(':')[0], tf.global_variables()), tf.global_variables()))
+    with tf.variable_scope('', reuse=True):
+        for var_name, saved_var_name in var_names:
+            curr_var = name2var[saved_var_name]
+            var_shape = curr_var.get_shape().as_list()
+            if var_shape == saved_shapes[saved_var_name]:
+                restore_vars.append(curr_var)
+            else:
+                print(var_name)
+    saver = tf.train.Saver(restore_vars)
+    saver.restore(session, save_file)
 
 def average_gradients(tower_grads):
     """
@@ -190,12 +218,12 @@ def main(argv=None):
     )
 
     with tf.Graph().as_default(), tf.device("/cpu:0"):
-        input_image, input_heat1, input_heat2, input_heat3  = get_input(params['batchsize'], params['max_epoch'], is_train=True)
+        input_image, input_heat1, input_heat2, input_heat3, input_heat1l, input_heat2l, input_heat3l, heat_mean  = get_input(params['batchsize'], params['max_epoch'], is_train=True)
         #valid_input_image, valid_input_heat = get_input(params['batchsize'], params['max_epoch'], is_train=False)
 
         global_step = tf.Variable(0, trainable=False)
-        learning_rate = tf.train.exponential_decay(float(params['lr']), global_step,
-                                                   decay_steps=70000, decay_rate=float(params['decay_rate']), staircase=True)
+        learning_rate = tf.train.exponential_decay(float(params['lr']) *20, global_step,
+                                                   decay_steps=15000, decay_rate=float(params['decay_rate']), staircase=True)
         opt = tf.train.AdamOptimizer(learning_rate, epsilon=1e-8)
         #tower_grads = []
         reuse_variable = False
@@ -204,7 +232,7 @@ def main(argv=None):
         for i in range(params['gpus']):
             with tf.device("/gpu:%d" % i):
                 with tf.name_scope("GPU_%d" % i):
-                    loss, last_heat_loss, pred_heat = get_loss_and_output(params['model'], params['batchsize'], input_image, input_heat1, input_heat2, input_heat3, reuse_variable)
+                    loss, last_heat_loss, pred_heat = get_loss_and_output(params['model'], params['batchsize'], input_image, input_heat1, input_heat2, input_heat3, input_heat1l, input_heat2l, input_heat3l, heat_mean, reuse_variable)
                     reuse_variable = True
                     grads = opt.compute_gradients(loss)
                     #tower_grads.append(grads)
@@ -240,11 +268,12 @@ def main(argv=None):
         with tf.Session(config=config) as sess:
             init.run()
             latest_ckpt = tf.train.latest_checkpoint(
-                'model/mv2_cpm_batch-64_lr-0.01_gpus-1_256x256_experiments-mv2_cpm')
+                'model/mv2_cpm_batch-64_lr-0.0005_gpus-1_256x256_experiments-mv2_cpm')
             if latest_ckpt:
                 print('Ckpt_found')
                 #print(latest_ckpt)
-                saver.restore(sess, latest_ckpt)
+                optimistic_restore(sess, latest_ckpt)
+                #saver.restore(sess, latest_ckpt)
                 #input(latest_ckpt)
                 #saver.restore(sess, 'model/mv2_cpm_batch-64_lr-0.01_gpus-1_256x256_experiments-mv2_cpm/model-1000')
 
@@ -286,7 +315,7 @@ def main(argv=None):
                 gt_coords = []
                 sum_heatmap = np.zeros([_WIDTH_, _WIDTH_])
                 gt_sum_heatmap = np.zeros([_WIDTH_, _WIDTH_])
-                for i in range(48):
+                for i in range(_POINTS_ -1):
                     single_heatmap = cv2.resize(heat[:,:, i], (_WIDTH_,_WIDTH_), cv2.INTER_LANCZOS4)
                     sum_heatmap += single_heatmap
                     pt = get_locs_from_hmap(single_heatmap)
