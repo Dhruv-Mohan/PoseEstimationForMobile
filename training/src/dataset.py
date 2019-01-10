@@ -39,11 +39,11 @@ iaa.Noop(),
     #iaa.Dropout(p=(0, 0.02)),
     #iaa.AddElementwise((-10, 10), per_channel=0.5),
     #iaa.AdditiveGaussianNoise(scale=(0, 0.05 * 0.1)),
-    # iaa.ContrastNormalization((0.5, 1.5)),
+    #iaa.ContrastNormalization((0.5, 1.5)),
     iaa.Affine(scale=(0.80, 1.25), translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)}, rotate=(-10, 10), shear=(-1, 1), mode=['edge'])
     #iaa.Fliplr(0.5)
     #iaa.pad()
-    # iaa.CoarseDropout(0.2, size_percent=(0.001, 0.2))
+    #iaa.CoarseDropout(0.2, size_percent=(0.001, 0.2))
 ], random_order=True)
 
 
@@ -61,7 +61,7 @@ CONFIG = None
 #_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512/mobile_train_images_256/'
 #_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512/mobile_train_256_32/'
 
-_DATASET_ = 'H'
+_DATASET_ = 'W'
 
 if _DATASET_ in 'H':
     _TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/300W_LP/out/helen_images'

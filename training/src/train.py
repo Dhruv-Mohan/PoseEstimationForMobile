@@ -35,7 +35,7 @@ import numpy as np
 _WIDTH_ = 256
 _HEIGHT_ = 256
 cpu = torch.device('cpu')
-_POINTS_ = 69
+_POINTS_ = 99
 def get_input(batchsize, epoch, is_train=True):
     if True:
         input_pipeline = get_train_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
@@ -222,7 +222,7 @@ def main(argv=None):
         #valid_input_image, valid_input_heat = get_input(params['batchsize'], params['max_epoch'], is_train=False)
 
         global_step = tf.Variable(0, trainable=False)
-        learning_rate = tf.train.exponential_decay(float(params['lr']) *20, global_step,
+        learning_rate = tf.train.exponential_decay(float(params['lr'])*20, global_step,
                                                    decay_steps=15000, decay_rate=float(params['decay_rate']), staircase=True)
         opt = tf.train.AdamOptimizer(learning_rate, epsilon=1e-8)
         #tower_grads = []

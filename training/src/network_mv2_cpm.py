@@ -16,9 +16,9 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
-from network_base import max_pool, upsample, inverted_bottleneck, separable_conv, convb, is_trainable
+from network_base import max_pool, upsample, inverted_bottleneck, separable_conv, convb, is_trainable, hourglass_block
 import tensorflow.contrib.layers as layers
-N_KPOINTS = 69
+N_KPOINTS = 99
 STAGE_NUM = 3
 _SEP_CHANNELS_ = 512  # 512
 _CPM_CHANNELS_ = 64  # 128
@@ -186,7 +186,48 @@ def build_cpm(input_):
     return conv5_2_CPM, Mconv7_stage2, Mconv7_stage3
 
 
-def build_network(input,  trainable):
+def build_network(input_, trainable):
+    is_trainable(trainable)
+
+
+    mv2_branch_0 = slim.stack(input_, inverted_bottleneck,
+                              [
+                                  (1, out_channel_ratio(16), 1, 3),
+                                  # (1, out_channel_ratio(16), 0, 3)
+                              ], scope="MobilenetV2_part_0")
+
+    mv2_branch_1 = slim.stack(mv2_branch_0, inverted_bottleneck,
+                              [
+                                  (up_channel_ratio(4), out_channel_ratio(24), 1, 3),
+                                  #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                  #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+                                  # (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+
+                              ], scope="MobilenetV2_part_1")
+
+    mv2_branch_2 = slim.stack(mv2_branch_1, inverted_bottleneck,
+                              [
+                                  (up_channel_ratio(4), 96, 1, 3),
+                                  #(up_channel_ratio(6), 32, 0, 3),
+                              ], scope="MobilenetV2_part_2")
+
+    hourglass1 = hourglass_block(mv2_branch_2, 'H1')
+    hourglass1 = hourglass_block(hourglass1, 'H2')
+    hourglass1 = hourglass_block(hourglass1, 'H3')
+    stage_2_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS-20, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,
+                                            activation_fn=None)
+
+
+    stage_2_sepconvl = layers.separable_conv2d(hourglass1, 21, kernel_size=1, scope='Mconv7_stage3l', depth_multiplier=1,
+                                            activation_fn=None)
+
+
+
+
+    out_put = tf.concat(axis=3, values=[stage_2_sepconvl, stage_2_sepconv], name='output')
+    return stage_2_sepconv, stage_2_sepconv, stage_2_sepconv, stage_2_sepconvl, stage_2_sepconvl, stage_2_sepconvl, out_put
+
+def build_network__(input,  trainable):
     is_trainable(trainable)
 
     net = convb(input, 3, 3, out_channel_ratio(32), 2, name="Conv2d_0")

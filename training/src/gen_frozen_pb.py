@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description='Tensorflow Pose Estimation Graph E
 parser.add_argument('--model', type=str, default='mv2_cpm', help='')
 parser.add_argument('--size', type=int, default=256)
 parser.add_argument('--checkpoint', type=str, default='/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/model/crap/model-5002.index', help='checkpoint path')
-parser.add_argument('--output_node_names', type=str, default='Convolutional_Pose_Machine/output')
+parser.add_argument('--output_node_names', type=str, default='output')
 parser.add_argument('--output_graph', type=str, default='./v3.1_trained_augment.pb', help='output_freeze_path')
 
 args = parser.parse_args()
@@ -76,7 +76,7 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    _NAME_ = "3.6.28.pb"
+    _NAME_ = "3.8.5.pb"
     with tf.gfile.GFile(_NAME_, "wb") as f:
         f.write(output_graph_def.SerializeToString())
 
