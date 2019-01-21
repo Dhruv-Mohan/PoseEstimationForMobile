@@ -548,7 +548,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,0,0), 1)
                     #cv2.putText(image_, str(ind),  (int(pt[0]), int(pt[1])),  font, 0.5, (200, 0, 0), 1, cv2.LINE_AA)
-                align_lip_pts(image_0, coords_argmax)
+                #align_lip_pts(image_0, coords_argmax)
                 #new_shape_pts = calc_params(np.asarray(coords_argmax))
                 #new_shape_pts = calc_params(new_shape_pts)
                 #new_shape_pts = calc_params(new_shape_pts)
@@ -731,7 +731,7 @@ if __name__ == '__main__':
     run_with_frozen_pb(
          "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg",
          256,
-         "./3.8.3.pb",
+         "./3.9.pb",
          "output"
      )
     display_image()

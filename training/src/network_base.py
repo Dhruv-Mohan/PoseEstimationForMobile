@@ -202,3 +202,134 @@ def hourglass_block(input, scope_prefix=""):
    sub_stage_9 = base_HG_block(res_stage_4, scope_prefix=scope_prefix+ '9')
 
    return sub_stage_9
+
+
+
+
+def base_HG_block(input, channels=96, scope_prefix="", mobile=True):
+   if mobile:
+       branch_1 = inverted_bottleneck(input, 2, channels, 0, 3, scope= scope_prefix+'branch1')
+       #branch_2 = inverted_bottleneck(branch_1, 2, channels/2, 0, 3, scope= scope_prefix+'branch2')
+       #branch_3 = inverted_bottleneck(branch_2, 2, channels/4, 0 ,3, scope= scope_prefix+'branch3')
+
+       #cat_1 = tf.concat(axis=3, values=[branch_1, input])
+
+       residual = tf.add(x=branch_1, y=input)
+       residual = tf.nn.relu6(residual)
+
+   else:
+       branch_1 = convb(input, 3, 3,  256/2, 1, relu=False, name= scope_prefix + 'branch1')
+       branch_2 = convb(branch_1, 3, 3, 256 / 4, 1, relu=False, name=scope_prefix + 'branch2')
+       branch_3 = convb(branch_2, 3, 3, 256 / 4, 1, relu=False, name=scope_prefix + 'branch3')
+
+       cat_1 = tf.concat(axis=3, values=[branch_1, branch_2, branch_3])
+
+       residual = tf.add(x=cat_1, y=input)
+       residual = tf.nn.relu(residual)
+
+   return tf.scalar_mul(0.001, residual)
+
+def hourglass_block(input, scope_prefix="", mobile=True):
+   if mobile:
+       sub_stage_1 = base_HG_block(input, scope_prefix=scope_prefix+ '1') #64x64
+       #side_stage_1 = base_HG_block(sub_stage_1, scope_prefix=scope_prefix+ '1s')
+       side_stage_1 = sub_stage_1
+       pool1 = tf.nn.max_pool(sub_stage_1,
+                             ksize=[1, 2, 2, 1],
+                             strides=[1, 2, 2, 1],
+                             padding="SAME")
+
+       sub_stage_2 = base_HG_block(pool1, scope_prefix=scope_prefix+ '2') #32x32
+       #side_stage_2 = base_HG_block(sub_stage_2, scope_prefix=scope_prefix+ '2s')
+       side_stage_2 = sub_stage_2
+       pool2 = tf.nn.max_pool(sub_stage_2,
+                             ksize=[1, 2, 2, 1],
+                             strides=[1, 2, 2, 1],
+                             padding="SAME")
+
+       sub_stage_3 = base_HG_block(pool2, scope_prefix=scope_prefix+ '3')  # 16x16
+       #side_stage_3 = base_HG_block(sub_stage_3, scope_prefix=scope_prefix+ '3s')
+       side_stage_3 = sub_stage_3
+       pool3 = tf.nn.max_pool(sub_stage_3,
+                              ksize=[1, 2, 2, 1],
+                              strides=[1, 2, 2, 1],
+                              padding="SAME")
+
+       sub_stage_4 = base_HG_block(pool3, scope_prefix=scope_prefix+ '4')  # 8x8
+       #side_stage_4 = base_HG_block(sub_stage_4, scope_prefix=scope_prefix+ '4s')
+       side_stage_4 = sub_stage_4
+       pool4 = tf.nn.max_pool(sub_stage_4,
+                              ksize=[1, 2, 2, 1],
+                              strides=[1, 2, 2, 1],
+                              padding="SAME")
+
+       sub_stage_5a = base_HG_block(pool4, scope_prefix=scope_prefix+ '5a')         # 4x4
+       #sub_stage_5b = base_HG_block(sub_stage_5a, scope_prefix=scope_prefix+ '5b')  # 4x4
+       #sub_stage_5c = base_HG_block(sub_stage_5b, scope_prefix=scope_prefix+ '5c')  # 4x4
+
+       up_stage_1 = upsample2(sub_stage_5a, 2, scope_prefix+'up1') # 8x8
+       res_stage_1 = tf.add(x=up_stage_1, y=side_stage_4)
+       sub_stage_6 = base_HG_block(res_stage_1, scope_prefix=scope_prefix+ '6')
+
+       up_stage_2 = upsample2(sub_stage_6, 2, scope_prefix+'up2') # 16x16
+       res_stage_2 = tf.add(x=up_stage_2, y=side_stage_3)
+       sub_stage_7 = base_HG_block(res_stage_2, scope_prefix=scope_prefix+ '7')
+
+       up_stage_3 = upsample2(sub_stage_7, 2, scope_prefix+'up3') # 32x32
+       res_stage_3 = tf.add(x=up_stage_3, y=side_stage_2, )
+       sub_stage_8 = base_HG_block(res_stage_3, scope_prefix=scope_prefix+ '8')
+
+       up_stage_4 = upsample2(sub_stage_8, 2, scope_prefix+'up4') # 64x64
+       res_stage_4 = tf.add(x=up_stage_4, y=side_stage_1)
+       sub_stage_9 = base_HG_block(res_stage_4, scope_prefix=scope_prefix+ '9')
+
+   else:
+       sub_stage_1 = base_HG_block(input, scope_prefix=scope_prefix + '1', mobile=False)  # 64x64
+       side_stage_1 = base_HG_block(sub_stage_1, scope_prefix=scope_prefix+ '1s',  mobile=False)
+       pool1 = tf.nn.max_pool(sub_stage_1,
+                              ksize=[1, 2, 2, 1],
+                              strides=[1, 2, 2, 1],
+                              padding="SAME")
+
+       sub_stage_2 = base_HG_block(pool1, scope_prefix=scope_prefix + '2',  mobile=False)  # 32x32
+       side_stage_2 = base_HG_block(sub_stage_2, scope_prefix=scope_prefix+ '2s', mobile=False)
+       pool2 = tf.nn.max_pool(sub_stage_2,
+                              ksize=[1, 2, 2, 1],
+                              strides=[1, 2, 2, 1],
+                              padding="SAME")
+
+       sub_stage_3 = base_HG_block(pool2, scope_prefix=scope_prefix + '3', mobile=False)  # 16x16
+       side_stage_3 = base_HG_block(sub_stage_3, scope_prefix=scope_prefix+ '3s', mobile=False)
+       pool3 = tf.nn.max_pool(sub_stage_3,
+                              ksize=[1, 2, 2, 1],
+                              strides=[1, 2, 2, 1],
+                              padding="SAME")
+
+       sub_stage_4 = base_HG_block(pool3, scope_prefix=scope_prefix + '4', mobile=False)  # 8x8
+       side_stage_4 = base_HG_block(sub_stage_4, scope_prefix=scope_prefix+ '4s', mobile=False)
+       pool4 = tf.nn.max_pool(sub_stage_4,
+                              ksize=[1, 2, 2, 1],
+                              strides=[1, 2, 2, 1],
+                              padding="SAME")
+
+       sub_stage_5a = base_HG_block(pool4, scope_prefix=scope_prefix + '5a', mobile=False)  # 4x4
+       sub_stage_5b = base_HG_block(sub_stage_5a, scope_prefix=scope_prefix+ '5b', mobile=False)  # 4x4
+       sub_stage_5c = base_HG_block(sub_stage_5b, scope_prefix=scope_prefix+ '5c', mobile=False)  # 4x4
+
+       up_stage_1 = upsample2(sub_stage_5c, 2, scope_prefix + 'up1')  # 8x8
+       res_stage_1 = tf.add(x=up_stage_1, y=side_stage_4)
+       sub_stage_6 = base_HG_block(res_stage_1, scope_prefix=scope_prefix + '6', mobile=False)
+
+       up_stage_2 = upsample2(sub_stage_6, 2, scope_prefix + 'up2')  # 16x16
+       res_stage_2 = tf.add(x=up_stage_2, y=side_stage_3)
+       sub_stage_7 = base_HG_block(res_stage_2, scope_prefix=scope_prefix + '7', mobile=False)
+
+       up_stage_3 = upsample2(sub_stage_7, 2, scope_prefix + 'up3')  # 32x32
+       res_stage_3 = tf.add(x=up_stage_3, y=side_stage_2, )
+       sub_stage_8 = base_HG_block(res_stage_3, scope_prefix=scope_prefix + '8', mobile=False)
+
+       up_stage_4 = upsample2(sub_stage_8, 2, scope_prefix + 'up4')  # 64x64
+       res_stage_4 = tf.add(x=up_stage_4, y=side_stage_1)
+       sub_stage_9 = base_HG_block(res_stage_4, scope_prefix=scope_prefix + '9', mobile=False)
+
+   return sub_stage_9

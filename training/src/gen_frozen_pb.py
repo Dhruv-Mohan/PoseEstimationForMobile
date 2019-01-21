@@ -76,7 +76,7 @@ with tf.Session() as sess:
         transformed_graph_def,  # The graph_def is used to retrieve the nodes
         args.output_node_names.split(",")  # The output node names are used to select the useful nodes
     )
-    _NAME_ = "3.8.5.pb"
+    _NAME_ = "3.9.pb"
     with tf.gfile.GFile(_NAME_, "wb") as f:
         f.write(output_graph_def.SerializeToString())
 

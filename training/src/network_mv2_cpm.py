@@ -189,31 +189,36 @@ def build_cpm(input_):
 def build_network(input_, trainable):
     is_trainable(trainable)
 
+    net = convb(input_, 7, 7, 32,  2, name='Layer1')  # 128x128
 
-    mv2_branch_0 = slim.stack(input_, inverted_bottleneck,
-                              [
-                                  (1, out_channel_ratio(16), 1, 3),
-                                  # (1, out_channel_ratio(16), 0, 3)
-                              ], scope="MobilenetV2_part_0")
+    net = convb(net, 3, 3, 128,  2, name='Layer2')  # 64x64
+    net = convb(net, 3, 3, 256,  2, name='Layer3')  # 64x64
 
-    mv2_branch_1 = slim.stack(mv2_branch_0, inverted_bottleneck,
-                              [
-                                  (up_channel_ratio(4), out_channel_ratio(24), 1, 3),
-                                  #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
-                                  #(up_channel_ratio(6), out_channel_ratio(24), 0, 3),
-                                  # (up_channel_ratio(6), out_channel_ratio(24), 0, 3),
+    hourglass1 = hourglass_block(net, 'H1', mobile=False)
+    hourglass1 = hourglass_block(hourglass1, 'H2', mobile=False)
 
-                              ], scope="MobilenetV2_part_1")
+    stage_0_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS-20, kernel_size=1, scope='Mconv5_stage3', depth_multiplier=1,
+                                            activation_fn=None)
 
-    mv2_branch_2 = slim.stack(mv2_branch_1, inverted_bottleneck,
-                              [
-                                  (up_channel_ratio(4), 96, 1, 3),
-                                  #(up_channel_ratio(6), 32, 0, 3),
-                              ], scope="MobilenetV2_part_2")
 
-    hourglass1 = hourglass_block(mv2_branch_2, 'H1')
-    hourglass1 = hourglass_block(hourglass1, 'H2')
-    hourglass1 = hourglass_block(hourglass1, 'H3')
+    stage_0_sepconvl = layers.separable_conv2d(hourglass1, 21, kernel_size=1, scope='Mconv5_stage3l', depth_multiplier=1,
+                                            activation_fn=None)
+
+
+    hourglass1 = hourglass_block(hourglass1, 'H3', mobile=False)
+    hourglass1 = hourglass_block(hourglass1, 'H4', mobile=False)
+    hourglass1 = hourglass_block(hourglass1, 'H5', mobile=False)
+
+    stage_1_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS-20, kernel_size=1, scope='Mconv6_stage3', depth_multiplier=1,
+                                            activation_fn=None)
+
+
+    stage_1_sepconvl = layers.separable_conv2d(hourglass1, 21, kernel_size=1, scope='Mconv6_stage3l', depth_multiplier=1,
+                                            activation_fn=None)
+
+    hourglass1 = hourglass_block(hourglass1, 'H6', mobile=False)
+    hourglass1 = hourglass_block(hourglass1, 'H7', mobile=False)
+    hourglass1 = hourglass_block(hourglass1, 'H8', mobile=False)
     stage_2_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS-20, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,
                                             activation_fn=None)
 
@@ -226,6 +231,9 @@ def build_network(input_, trainable):
 
     out_put = tf.concat(axis=3, values=[stage_2_sepconvl, stage_2_sepconv], name='output')
     return stage_2_sepconv, stage_2_sepconv, stage_2_sepconv, stage_2_sepconvl, stage_2_sepconvl, stage_2_sepconvl, out_put
+
+
+
 
 def build_network__(input,  trainable):
     is_trainable(trainable)

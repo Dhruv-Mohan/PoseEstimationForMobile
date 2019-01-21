@@ -222,8 +222,8 @@ def main(argv=None):
         #valid_input_image, valid_input_heat = get_input(params['batchsize'], params['max_epoch'], is_train=False)
 
         global_step = tf.Variable(0, trainable=False)
-        learning_rate = tf.train.exponential_decay(float(params['lr'])*20, global_step,
-                                                   decay_steps=15000, decay_rate=float(params['decay_rate']), staircase=True)
+        learning_rate = tf.train.exponential_decay(0.01, global_step,
+                                                   decay_steps=5000, decay_rate=float(params['decay_rate']), staircase=True)
         opt = tf.train.AdamOptimizer(learning_rate, epsilon=1e-8)
         #tower_grads = []
         reuse_variable = False
