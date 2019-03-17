@@ -18,7 +18,7 @@ import tensorflow.contrib.slim as slim
 
 from network_base import max_pool, upsample, inverted_bottleneck, separable_conv, convb, is_trainable, hourglass_block
 import tensorflow.contrib.layers as layers
-N_KPOINTS = 99
+N_KPOINTS = 101
 STAGE_NUM = 3
 _SEP_CHANNELS_ = 512  # 512
 _CPM_CHANNELS_ = 64  # 128

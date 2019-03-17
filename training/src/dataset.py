@@ -40,7 +40,7 @@ iaa.Noop(),
     #iaa.AddElementwise((-10, 10), per_channel=0.5),
     #iaa.AdditiveGaussianNoise(scale=(0, 0.05 * 0.1)),
     #iaa.ContrastNormalization((0.5, 1.5)),
-    iaa.Affine(scale=(0.80, 1.25), translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)}, rotate=(-10, 10), shear=(-1, 1), mode=['edge'])
+    #iaa.Affine(scale=(0.80, 1.25), translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)}, rotate=(-10, 10), shear=(-1, 1), mode=['edge'])
     #iaa.Fliplr(0.5)
     #iaa.pad()
     #iaa.CoarseDropout(0.2, size_percent=(0.001, 0.2))
@@ -72,9 +72,9 @@ elif _DATASET_ in 'G':
     _TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512_25/mobile_train_256_32_91_augmented/'
     _POINTS_ = 91
 else:
-    _TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM/Train/images'
-    _TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM/Train/pts'
-    _POINTS_ = 99
+    _TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM2/Train/images'
+    _TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM2/Train/pts'
+    _POINTS_ = 101
 
 
 

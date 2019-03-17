@@ -46,6 +46,11 @@ INPUT_WIDTH = 256
 INPUT_HEIGHT = 256
 cpu = torch.device('cpu')
 import yaml
+
+
+def dist(p1, p2):
+    return math.sqrt((p1[0]-p2[0]) *(p1[0]-p2[0]) + (p1[1]-p2[1]) *(p1[1]-p2[1]))
+
 def opencv_matrix(loader, node):
     mapping = loader.construct_mapping(node, deep=True)
     mat = np.array(mapping["data"])
@@ -446,6 +451,13 @@ def metric_prefix(input_width, input_height):
         print("opts {:,} --- paras {:,}".format(flops.total_float_ops, params.total_parameters))
         sess.run(tf.global_variables_initializer())
 
+def get_ratio(landmarks):
+    face_length = dist(landmarks[98], landmarks[36])
+    face_width = dist(landmarks[27], landmarks[46])
+
+
+    print(face_length/face_width)
+    return face_length/face_width
 
 def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
     import tensorflow as tf
@@ -465,45 +477,49 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
             return_elements=None,
             name=""
         )
+        _IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/hair/'
+        _IMAGE_OUT_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/hair_out/'
 
         graph = tf.get_default_graph()
         image = graph.get_tensor_by_name("image:0")
         #heat_mean = graph.get_tensor_by_name("heat_mean:0")
         output = graph.get_tensor_by_name("%s:0" % output_node_names)
-        images = os.listdir('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val/')
+        images = os.listdir(_IMAGE_PATH_)
 
         total_l1e = []
         pickle_mean = os.path.join(_TRAIN_PICKLE_PATH_, 'mean.pickle')
         with open(pickle_mean, 'rb') as heat_pickle:
             heatmap_mean = pickle.load(heat_pickle)
+        with tf.Session() as sess:
+            for ima in images:
+                image_full_path = os.path.join(_IMAGE_PATH_
+                                               , ima)
+                image_output_path = os.path.join(_IMAGE_OUT_PATH_,
+                                                 ima)
+                heatmap_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
+                                                 'heatmap_' + ima)
 
-        for ima in images:
-            image_full_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val'
-                                           , ima)
-            image_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
-                                             ima)
-            heatmap_output_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/val_out',
-                                             'heatmap_' + ima)
+                ref_image_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/images', ima)
+                pts_output_path =os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/pts_out', os.path.splitext(ima)[0] + '.pts')
+                #gt_filename = os.path.splitext(ima)[0] +'.pts'
+                #gt_file_path = os.path.join(_GT_PATH_, gt_filename)
+                #gt_pts = get_pts(gt_file_path, 90)
 
-            ref_image_path = os.path.join('/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/images', ima)
-            #gt_filename = os.path.splitext(ima)[0] +'.pts'
-            #gt_file_path = os.path.join(_GT_PATH_, gt_filename)
-            #gt_pts = get_pts(gt_file_path, 90)
+                image_0 = cv2.imread(image_full_path)
+                #image_a = cv2.imread(ref_image_path)
+                #image_0 = cv2.imread('/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg')
 
-            image_0 = cv2.imread(image_full_path)
-            image_a = cv2.imread(ref_image_path)
-            #image_0 = cv2.imread('/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg')
+                image_ = cv2.resize(image_0, (INPUT_WIDTH, INPUT_HEIGHT), interpolation=cv2.INTER_AREA)
+                image_ = image_.astype(np.float32)
+                #w, h, _ = image_a.shape
+                #gt_pts = scale_pts(gt_pts, image_0.shape)
+                #input(gt_pts)
+                #print(w,h)
 
-            image_ = cv2.resize(image_0, (INPUT_WIDTH, INPUT_HEIGHT), interpolation=cv2.INTER_AREA)
-            image_ = image_.astype(np.float32)
-            #w, h, _ = image_a.shape
-            #gt_pts = scale_pts(gt_pts, image_0.shape)
-            #input(gt_pts)
-            #print(w,h)
-            with tf.Session() as sess:
                 #a = datetime.datetime.now()
                 start_time = time.time()
                 heatmaps = sess.run(output, feed_dict={image: [image_]})
+
                 duration = time.time() - start_time
                 print("Duration : {}".format(duration))
                 heatmaps = np.squeeze(heatmaps)
@@ -518,10 +534,12 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 locs, sub_f = find_tensor_peak_batch(heat, 4, 16)
                 sub_f = sub_f.to(cpu).numpy()
 
-                for i in range(99):
+                for i in range(100):
                     if i == 20:
                         continue
                     pt_32 = get_locs_from_hmap(heatmaps[:, :, i])
+
+
                     show_sub_f = np.expand_dims(sub_f[i, :, :], -1)
                     #cv2.imshow('show_subf', show_sub_f)
                     pt_argmax = soft_argmax(heatmaps[:, :, i], pt_32)
@@ -547,7 +565,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 for ind, pt in enumerate(coords_argmax):
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,0,0), 1)
-                    #cv2.putText(image_, str(ind),  (int(pt[0]), int(pt[1])),  font, 0.5, (200, 0, 0), 1, cv2.LINE_AA)
+                    cv2.putText(image_, str(ind),  (int(pt[0]), int(pt[1])),  font, 0.5, (200, 0, 0), 1, cv2.LINE_AA)
                 #align_lip_pts(image_0, coords_argmax)
                 #new_shape_pts = calc_params(np.asarray(coords_argmax))
                 #new_shape_pts = calc_params(new_shape_pts)
@@ -576,8 +594,9 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 for pt in coords_argmax:
                     cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,255,0), 1)
                 #cv2.imshow('image', image_ / 255)
-
-
+                get_ratio(coords_argmax)
+                with open(pts_output_path, 'w') as file:
+                    write_pts(file, np.asarray(coords_argmax))
                 '''
                 for pt in gt_pts:
                     cv2.circle(image_, (int(pt[0]*512/h), int(pt[1]*512/w)),3,(0,255,0), 1)
@@ -588,7 +607,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 #gt_sum_heatmap = np.tile(gt_sum_heatmap, 3)
                 cv2.imwrite(image_output_path, (image_))
                 #cv2.imwrite(heatmap_output_path, (gt_sum_heatmap*255))
-                cv2.waitKey(0)
+                cv2.waitKey(1)
         total_l1e = np.asarray(total_l1e)
         total_l1e = np.mean(total_l1e)
         #input('Total_l1e= {}'.format(total_l1e))
@@ -610,6 +629,7 @@ def get_locs_from_hmap(part_map_resized):
     return(np.unravel_index(part_map_resized.argmax(), part_map_resized.shape))
 
 def soft_argmax(patch_t, coord):
+
     patch = cv2.getRectSubPix(patch_t, (9, 9), (coord[1], coord[0] ))
     test_patch = cv2.getRectSubPix(patch_t, (32, 32), (coord[1], coord[0]))
     show_patch = np.expand_dims(patch,-1)
@@ -631,6 +651,7 @@ def soft_argmax(patch_t, coord):
     #input('x_pos = {}'.format(x_pos))
     y_pos = ((np.sum(patch*x) / patch_sum) + coord[0]) * 16 + 6.5
     #input('y_pos = {}'.format(y_pos))
+
     return x_pos, y_pos
 
 
@@ -731,7 +752,7 @@ if __name__ == '__main__':
     run_with_frozen_pb(
          "/home/dhruv/Projects/PersonalGit/PoseEstimationForMobile/training/2.jpg",
          256,
-         "./3.9.pb",
+         "./4.1.pb",
          "output"
      )
     display_image()
@@ -744,4 +765,9 @@ def get_locs_from_heatmaps(heatmaps):
         coords.append(pt)
 
     return coords
+
+
+
+
+
 
