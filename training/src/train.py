@@ -35,7 +35,7 @@ import numpy as np
 _WIDTH_ = 256
 _HEIGHT_ = 256
 cpu = torch.device('cpu')
-_POINTS_ = 101
+_POINTS_ = 9
 def get_input(batchsize, epoch, is_train=True):
     if True:
         input_pipeline = get_train_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
@@ -43,40 +43,22 @@ def get_input(batchsize, epoch, is_train=True):
     #input_pipeline = get_valid_dataset_pipeline(batch_size=batchsize, epoch=epoch, buffer_size=100)
     iter = input_pipeline.make_one_shot_iterator()
     _ = iter.get_next()
-    return _[0], _[1], _[2],_[3] , _[4], _[5],_[6] , _[7]
+    return _[0], _[1]
 
 def get_locs_from_hmap(part_map_resized):
     return (np.unravel_index(part_map_resized.argmax(), part_map_resized.shape))
 
-def get_loss_and_output(model, batchsize, input_image, input_heat1, input_heat2, input_heat3,input_heat1l, input_heat2l, input_heat3l, heat_mean, reuse_variables=None):
+def get_loss_and_output(model, batchsize, input_image, input_heat1, reuse_variables=None):
     losses = []
 
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variables):
-        conv5_2_CPM, Mconv7_stage2, Mconv7_stage3, conv5_2_CPMl, Mconv7_stage2l, Mconv7_stage3l, output = get_network(model, input_image, True)
+        conv5_2_CPM, output = get_network(model, input_image, True)
         #_, pred_heatmaps_all = get_network(model, input_image, False)
 
     ll0 = tf.nn.l2_loss(tf.concat(conv5_2_CPM, axis=0) - input_heat1, name='loss_heatmap_stage%d' % 0)
 
-
-    ll1 = tf.nn.l2_loss(tf.concat(Mconv7_stage2, axis=0) - input_heat2, name='loss_heatmap_stage%d' % 1)
-
-
-    ll2 = tf.nn.l2_loss(tf.concat(Mconv7_stage3, axis=0) - input_heat3, name='loss_heatmap_stage%d' % 2)
-
-    ll0l = tf.nn.l2_loss(tf.concat(conv5_2_CPMl, axis=0) - input_heat1l, name='loss_heatmap_stage%d' % 0)
-
-
-    ll1l = tf.nn.l2_loss(tf.concat(Mconv7_stage2l, axis=0) - input_heat2l, name='loss_heatmap_stage%d' % 1)
-
-
-    ll2l = tf.nn.l2_loss(tf.concat(Mconv7_stage3l, axis=0) - input_heat3l, name='loss_heatmap_stage%d' % 2)
-
-    losses.append(ll2)
-    losses.append(ll1)
     losses.append(ll0)
-    losses.append(ll2l)
-    losses.append(ll1l)
-    losses.append(ll0l)
+
     '''
     for idx, pred_heat in enumerate(pred_heatmaps_all):
         loss_l2 = tf.nn.l2_loss(tf.concat(pred_heat, axis=0) - input_heat, name='loss_heatmap_stage%d' % idx)
@@ -88,7 +70,7 @@ def get_loss_and_output(model, batchsize, input_image, input_heat1, input_heat2,
 
     '''
     total_loss = tf.reduce_sum(losses) / batchsize
-    total_loss_ll_heat = tf.reduce_sum(ll2) / batchsize
+    total_loss_ll_heat = tf.reduce_sum(ll0) / batchsize
     return total_loss, total_loss_ll_heat, output
 
 def optimistic_restore(session, save_file):
@@ -218,7 +200,7 @@ def main(argv=None):
     )
 
     with tf.Graph().as_default(), tf.device("/cpu:0"):
-        input_image, input_heat1, input_heat2, input_heat3, input_heat1l, input_heat2l, input_heat3l, heat_mean  = get_input(params['batchsize'], params['max_epoch'], is_train=True)
+        input_image, input_heat1= get_input(params['batchsize'], params['max_epoch'], is_train=True)
         #valid_input_image, valid_input_heat = get_input(params['batchsize'], params['max_epoch'], is_train=False)
 
         global_step = tf.Variable(0, trainable=False)
@@ -232,7 +214,7 @@ def main(argv=None):
         for i in range(params['gpus']):
             with tf.device("/gpu:%d" % i):
                 with tf.name_scope("GPU_%d" % i):
-                    loss, last_heat_loss, pred_heat = get_loss_and_output(params['model'], params['batchsize'], input_image, input_heat1, input_heat2, input_heat3, input_heat1l, input_heat2l, input_heat3l, heat_mean, reuse_variable)
+                    loss, last_heat_loss, pred_heat = get_loss_and_output(params['model'], params['batchsize'], input_image, input_heat1, reuse_variable)
                     reuse_variable = True
                     grads = opt.compute_gradients(loss)
                     #tower_grads.append(grads)
@@ -290,7 +272,7 @@ def main(argv=None):
                 start_time = time.time()
 
                 _, loss_value, lh_loss, in_image, in_heat, p_heat = sess.run(
-                    [train_op, loss, last_heat_loss, input_image, input_heat3, pred_heat]
+                    [train_op, loss, last_heat_loss, input_image, input_heat1, pred_heat]
                 )
                 #print(in_image.shape)
                 '''

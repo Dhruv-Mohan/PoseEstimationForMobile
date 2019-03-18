@@ -18,7 +18,7 @@ import tensorflow.contrib.slim as slim
 
 from network_base import max_pool, upsample, inverted_bottleneck, separable_conv, convb, is_trainable, hourglass_block
 import tensorflow.contrib.layers as layers
-N_KPOINTS = 101
+N_KPOINTS = 9
 STAGE_NUM = 3
 _SEP_CHANNELS_ = 512  # 512
 _CPM_CHANNELS_ = 64  # 128
@@ -191,46 +191,16 @@ def build_network(input_, trainable):
 
     net = convb(input_, 7, 7, 32,  2, name='Layer1')  # 128x128
 
-    net = convb(net, 3, 3, 128,  2, name='Layer2')  # 64x64
-    net = convb(net, 3, 3, 256,  2, name='Layer3')  # 64x64
+    net = convb(net, 3, 3, 48,  2, name='Layer2')  # 64x64
+    net = convb(net, 3, 3, 64,  2, name='Layer3')  # 64x64
 
-    hourglass1 = hourglass_block(net, 'H1', mobile=False)
-    hourglass1 = hourglass_block(hourglass1, 'H2', mobile=False)
-
-    stage_0_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS-20, kernel_size=1, scope='Mconv5_stage3', depth_multiplier=1,
+    hourglass1 = hourglass_block(net, 'H1', mobile=True)
+    hourglass1 = hourglass_block(hourglass1, 'H2', mobile=True)
+    #hourglass1 = hourglass_block(hourglass1, 'H3', mobile=True)
+    stage_2_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,
                                             activation_fn=None)
-
-
-    stage_0_sepconvl = layers.separable_conv2d(hourglass1, 21, kernel_size=1, scope='Mconv5_stage3l', depth_multiplier=1,
-                                            activation_fn=None)
-
-
-    hourglass1 = hourglass_block(hourglass1, 'H3', mobile=False)
-    hourglass1 = hourglass_block(hourglass1, 'H4', mobile=False)
-    hourglass1 = hourglass_block(hourglass1, 'H5', mobile=False)
-
-    stage_1_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS-20, kernel_size=1, scope='Mconv6_stage3', depth_multiplier=1,
-                                            activation_fn=None)
-
-
-    stage_1_sepconvl = layers.separable_conv2d(hourglass1, 21, kernel_size=1, scope='Mconv6_stage3l', depth_multiplier=1,
-                                            activation_fn=None)
-
-    hourglass1 = hourglass_block(hourglass1, 'H6', mobile=False)
-    hourglass1 = hourglass_block(hourglass1, 'H7', mobile=False)
-    hourglass1 = hourglass_block(hourglass1, 'H8', mobile=False)
-    stage_2_sepconv = layers.separable_conv2d(hourglass1, N_KPOINTS-20, kernel_size=1, scope='Mconv7_stage3', depth_multiplier=1,
-                                            activation_fn=None)
-
-
-    stage_2_sepconvl = layers.separable_conv2d(hourglass1, 21, kernel_size=1, scope='Mconv7_stage3l', depth_multiplier=1,
-                                            activation_fn=None)
-
-
-
-
-    out_put = tf.concat(axis=3, values=[stage_2_sepconvl, stage_2_sepconv], name='output')
-    return stage_2_sepconv, stage_2_sepconv, stage_2_sepconv, stage_2_sepconvl, stage_2_sepconvl, stage_2_sepconvl, out_put
+    out_put = tf.identity(stage_2_sepconv, name='output')
+    return stage_2_sepconv, out_put
 
 
 

@@ -206,7 +206,7 @@ def hourglass_block(input, scope_prefix=""):
 
 
 
-def base_HG_block(input, channels=96, scope_prefix="", mobile=True):
+def base_HG_block(input, channels=64, scope_prefix="", mobile=True):
    if mobile:
        branch_1 = inverted_bottleneck(input, 2, channels, 0, 3, scope= scope_prefix+'branch1')
        #branch_2 = inverted_bottleneck(branch_1, 2, channels/2, 0, 3, scope= scope_prefix+'branch2')

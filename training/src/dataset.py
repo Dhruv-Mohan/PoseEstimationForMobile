@@ -63,19 +63,11 @@ CONFIG = None
 
 _DATASET_ = 'W'
 
-if _DATASET_ in 'H':
-    _TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/300W_LP/out/helen_images'
-    _TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/300W_LP/out/helen_pts'
-    _POINTS_ = 69
-elif _DATASET_ in 'G':
-    _TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512_25/mobile_train_images_256_91/'
-    _TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Menpo512_25/mobile_train_256_32_91_augmented/'
-    _POINTS_ = 91
-else:
-    _TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM2/Train/images'
-    _TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/FaceDataset/WFLW/WM2/Train/pts'
-    _POINTS_ = 101
+_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Nail_Data/Train/images'
+_TRAIN_PICKLE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Nail_Data/Train/pts'
 
+#_TRAIN_IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Nail_Data/Train/s/'
+_POINTS_ = 9
 
 
 #_TRAIN_IMAGE_PATH_  = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/mobile_train_images_256_single/'
@@ -148,81 +140,25 @@ def _parse_function(imgId, is_train, ann=None):
 
     if _EDGE_:
         heatmap_s1 = np.multiply(heatmap_s1, lap_edge)
-        heatmap_s2 = np.multiply(heatmap_s2, lap_edge)
-        heatmap_s3 = np.multiply(heatmap_s3, lap_edge)
+
 
     aug_det = aug.to_deterministic()
     image = aug_det.augment_image(image)
     aug_heatmaps1 = aug_det.augment_image(heatmap_s1)
-    aug_heatmaps2 = aug_det.augment_image(heatmap_s2)
-    aug_heatmaps3 = aug_det.augment_image(heatmap_s3)
 
-    if _DATASET_ in 'H':
-        aug_heatmaps1_lips = aug_heatmaps1[:,:,48:68]
-        aug_heatmaps2_lips = aug_heatmaps2[:, :,48:68]
-        aug_heatmaps3_lips = aug_heatmaps3[:, :,48:68]
 
-        back = np.expand_dims(aug_heatmaps3[:,:,-1], -1)
-        #eyes = aug_heatmaps3[:,:,96:-1]
-        aug_heatmaps1_rest = np.concatenate([aug_heatmaps1[:,:,0:48], back], -1)
-        aug_heatmaps2_rest = np.concatenate([aug_heatmaps2[:,:,0:48], back], -1)
-        aug_heatmaps3_rest = np.concatenate([aug_heatmaps3[:,:,0:48], back], -1)
-        aug_heatmaps1_lips = np.concatenate([aug_heatmaps1_lips, back], -1)
-        aug_heatmaps2_lips = np.concatenate([aug_heatmaps2_lips, back], -1)
-        aug_heatmaps3_lips = np.concatenate([aug_heatmaps3_lips, back], -1)
-
-    elif _DATASET_ in 'G':
-        aug_heatmaps1_lips = aug_heatmaps1[:, :, 55:75]
-        aug_heatmaps2_lips = aug_heatmaps2[:, :, 55:75]
-        aug_heatmaps3_lips = aug_heatmaps3[:, :, 55:75]
-
-        back = np.expand_dims(aug_heatmaps3[:, :, -1], -1)
-        eyes = aug_heatmaps3[:, :, 75:-1]
-        aug_heatmaps1_rest = np.concatenate([aug_heatmaps1[:, :, 0:55], eyes, back], -1)
-        aug_heatmaps2_rest = np.concatenate([aug_heatmaps2[:, :, 0:55], eyes, back], -1)
-        aug_heatmaps3_rest = np.concatenate([aug_heatmaps3[:, :, 0:55], eyes, back], -1)
-        aug_heatmaps1_lips = np.concatenate([aug_heatmaps1_lips, back], -1)
-        aug_heatmaps2_lips = np.concatenate([aug_heatmaps2_lips, back], -1)
-        aug_heatmaps3_lips = np.concatenate([aug_heatmaps3_lips, back], -1)
-
-    else:
-        aug_heatmaps1_lips = aug_heatmaps1[:, :, 76:96]
-        aug_heatmaps2_lips = aug_heatmaps2[:, :, 76:96]
-        aug_heatmaps3_lips = aug_heatmaps3[:, :, 76:96]
-
-        back = np.expand_dims(aug_heatmaps3[:, :, -1], -1)
-        eyes = aug_heatmaps3[:, :, 96:-1]
-        aug_heatmaps1_rest = np.concatenate([aug_heatmaps1[:, :, 0:76], eyes, back], -1)
-        aug_heatmaps2_rest = np.concatenate([aug_heatmaps2[:, :, 0:76], eyes, back], -1)
-        aug_heatmaps3_rest = np.concatenate([aug_heatmaps3[:, :, 0:76], eyes, back], -1)
-        aug_heatmaps1_lips = np.concatenate([aug_heatmaps1_lips, back], -1)
-        aug_heatmaps2_lips = np.concatenate([aug_heatmaps2_lips, back], -1)
-        aug_heatmaps3_lips = np.concatenate([aug_heatmaps3_lips, back], -1)
 
 
     #input(heatmap.shape)
     #input(aug_heatmaps.shape)
-    return image, aug_heatmaps1_rest, aug_heatmaps2_rest, aug_heatmaps3_rest,aug_heatmaps1_lips, aug_heatmaps2_lips, aug_heatmaps3_lips, heatmap_mean
+    return image, aug_heatmaps1
 
 
-def _set_shapes(img, heatmap1, heatmap2, heatmap3, heatmap1l, heatmap2l, heatmap3l,heatmap_mean):
+def _set_shapes(img, heatmap1):
     img.set_shape([CONFIG['input_height'], CONFIG['input_width'], 3])
     heatmap1.set_shape(
-        [32, 32, _POINTS_-20])
-    heatmap2.set_shape(
-        [32, 32, _POINTS_-20])
-    heatmap3.set_shape(
-        [32, 32, _POINTS_-20])
-    heatmap1l.set_shape(
-        [32, 32, 21])
-    heatmap2l.set_shape(
-        [32, 32, 21])
-    heatmap3l.set_shape(
-        [32, 32, 21])
-    heatmap_mean.set_shape(
         [32, 32, _POINTS_])
-
-    return img, heatmap1, heatmap2, heatmap3, heatmap1l, heatmap2l, heatmap3l, heatmap_mean
+    return img, heatmap1
 
 def _get_sbr_images():
     folders = os.listdir(_SBR_PATH_)
@@ -262,7 +198,7 @@ def _get_dataset_pipeline(anno, batch_size, epoch, buffer_size, is_train=True):
             tf.py_func(
                 func=_parse_function,
                 inp=[imgId, is_train],
-                Tout=[tf.float32, tf.float32 ,tf.float32,tf.float32, tf.float32 ,tf.float32,tf.float32, tf.float32]
+                Tout=[tf.float32, tf.float32]
             )
         ), num_parallel_calls=CONFIG['multiprocessing_num'])
 

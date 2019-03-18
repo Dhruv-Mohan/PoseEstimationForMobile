@@ -58,10 +58,6 @@ def opencv_matrix(loader, node):
     return mat
 yaml.add_constructor(u"tag:yaml.org,2002:opencv-matrix", opencv_matrix)
 
-with open('/home/dhruv/Projects/PersonalGit/code/Chapter6_NonRigidFaceTracking/src/bin/shape.obj') as fin:
-    shape_obj = yaml.load(fin.read())
-
-
 def get_x(y, slope, inter):
     x = (y - inter) / slope
     return x
@@ -477,8 +473,8 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
             return_elements=None,
             name=""
         )
-        _IMAGE_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/hair/'
-        _IMAGE_OUT_PATH_ = '/home/dhruv/Projects/Datasets/Groomyfy_27k/Source/Menpo512_25/hair_out/'
+        _IMAGE_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Nail_Data/Train/s'
+        _IMAGE_OUT_PATH_ = '/media/dhruv/Blue1/Blue1/Datasets/Nail_Data/Train/sout'
 
         graph = tf.get_default_graph()
         image = graph.get_tensor_by_name("image:0")
@@ -534,7 +530,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 locs, sub_f = find_tensor_peak_batch(heat, 4, 16)
                 sub_f = sub_f.to(cpu).numpy()
 
-                for i in range(100):
+                for i in range(8):
                     if i == 20:
                         continue
                     pt_32 = get_locs_from_hmap(heatmaps[:, :, i])
@@ -594,7 +590,6 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 for pt in coords_argmax:
                     cv2.circle(image_, (int(pt[0]), int(pt[1])),3,(255,255,0), 1)
                 #cv2.imshow('image', image_ / 255)
-                get_ratio(coords_argmax)
                 with open(pts_output_path, 'w') as file:
                     write_pts(file, np.asarray(coords_argmax))
                 '''
@@ -607,7 +602,7 @@ def run_with_frozen_pb(img_path, input_w_h, frozen_graph, output_node_names):
                 #gt_sum_heatmap = np.tile(gt_sum_heatmap, 3)
                 cv2.imwrite(image_output_path, (image_))
                 #cv2.imwrite(heatmap_output_path, (gt_sum_heatmap*255))
-                cv2.waitKey(1)
+                cv2.waitKey(0)
         total_l1e = np.asarray(total_l1e)
         total_l1e = np.mean(total_l1e)
         #input('Total_l1e= {}'.format(total_l1e))
